@@ -10,12 +10,25 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->verticalLayout->addWidget(&chart);
 
-    Series s(&chart);
+    QPalette pal = palette();
+    pal.setColor(QPalette::Base, Qt::black);
+    this->setPalette(pal);
 
-    int id = chart.addSeries(s);
+    chart.setPalette(pal);
 
-    for (double x = 0; x < 100; x+=0.1)
-        chart.getSeriesByID(id)->addXY(x, sin(x));
+    Series s1(&chart);
+    Series s2(&chart);
+
+    s1.setPen(QPen(Qt::red));
+    s2.setPen(QPen(Qt::blue));
+
+    int id1 = chart.addSeries(s1);
+    int id2 = chart.addSeries(s2);
+
+    for (double x = 0; x < 100; x+=0.1) {
+        chart.getSeriesByID(id1)->addXY(x, sin(x));
+        chart.getSeriesByID(id2)->addXY(x, cos(x));
+    }
 }
 
 MainWindow::~MainWindow()

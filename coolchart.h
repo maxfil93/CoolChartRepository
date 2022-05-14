@@ -15,14 +15,31 @@ class Series
 private:
     SeriesType type;
     QList<QPointF> xy;
+    QList<QPoint> xyPix;
     QBrush brush;
     QPen pen;
     CoolChart* parent;
     static int cnt;
     int id;
     double max_x, min_x, max_y, min_y;
+    bool visible;
+
+    double avg_sum_y;
+    double avg_n_y;
+    double avg_y;
+
+    QString name;
+
+
 
 public:
+    double avg_vis_sum_y;
+    double avg_vis_n_y;
+    double avg_vis_y;
+
+    int first_drawable_point_ind;
+    double first_drawable_point_x;
+
     Series(CoolChart* parent);
 
     void addXY(QPointF p);
@@ -33,12 +50,19 @@ public:
     void setType(SeriesType type);
     void setBrush(QBrush brush);
     void setPen(QPen pen);
+    void setVisible(bool v);
+    void setXYPix(QList<QPoint> xyP){xyPix = xyP;}
+    void setName(QString n) {name = n;}
 
     SeriesType getType();
     QBrush getBrush();
     QPen getPen();
+    bool getVisible();
+    QList<QPoint>* getXYPix(){return &xyPix;}
+    QString getName() {return name;}
 
     int getID(){return id;}
+    double getAvgY() {return avg_y;}
 };
 
 class CoolChart : public QWidget
@@ -91,7 +115,12 @@ private:
     char textY_fmt;
     int textY_prec;
 
+    bool draw_inf_enabled;
+
+    bool zoom_rect_draw_enable;
+
     bool doesPhisycalPointBelongToChart(QPointF p);
+    bool doesPhisycalLineBelongToChart(QLineF l);
     int calcPixDist(QLine l);
     QPoint  phisycalPointToPix(QPointF point);
     QPointF pixPointToPhisycal(QPoint point);
@@ -106,6 +135,7 @@ private:
     void drawCircleSeries(int i, QPainter& p);
     void drawXNumber(QPainter& painter, int x);
     void drawYNumber(QPainter& painter, int y);
+    void DrawInf(QPainter& p);
 
 public:
     CoolChart(QWidget *ob = 0);
@@ -160,16 +190,22 @@ public:
     bool getAutoYLimits();
     QPen getCrossPen();
 
+    QList<Series>* getSeries();
+
     int addSeries(Series s);
     Series* getSeriesByID(int id);
     void deleteSeriesById(int id);
     void clear();
+
+    bool do_lines_cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4);
 
 protected:
       void paintEvent(QPaintEvent *event) override;
       void mouseMoveEvent(QMouseEvent *event) override;
       void mousePressEvent(QMouseEvent *event) override;
       void mouseReleaseEvent(QMouseEvent *event) override;
+
+      void keyPressEvent(QKeyEvent* event) override;
 };
 
 #endif // COOLCHART_H

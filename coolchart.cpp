@@ -23,14 +23,33 @@ Series::Series(CoolChart* parent)
     pen.setColor(Qt::red);
     pen.setStyle(Qt::SolidLine);
 
+    visible = true;
+
     id = cnt++;
 
     max_x = min_x = max_y = min_y = 0;
+
+    avg_sum_y = 0;
+    avg_n_y = 0;
+    avg_y = 0;
+
+    avg_vis_sum_y = 0;
+    avg_vis_n_y = 0;
+    avg_vis_y = 0;
+
+    name = "Series" + QString::number(id);
+
+    first_drawable_point_ind = -1;
+    first_drawable_point_x = -1;
 }
 
 void Series::addXY(QPointF p)
 {
     xy.append(p);
+
+    avg_sum_y += p.y();
+    avg_n_y++;
+    avg_y = avg_sum_y / avg_n_y;
 
     if (xy.size() == 1) {
         max_x = p.x();
@@ -65,6 +84,10 @@ void Series::addXY(double x, double y)
     QPointF p(x, y);
     xy.append(p);
 
+    avg_sum_y += p.y();
+    avg_n_y++;
+    avg_y = avg_sum_y / avg_n_y;
+
     if (xy.size() == 1) {
         max_x = p.x();
         min_x = p.x();
@@ -95,6 +118,14 @@ void Series::addXY(double x, double y)
 
 void Series::clear()
 {
+    avg_sum_y = 0;
+    avg_n_y = 0;
+    avg_y = 0;
+
+    avg_vis_sum_y = 0;
+    avg_vis_n_y = 0;
+    avg_vis_y = 0;
+
     xy.clear();
     parent->update();
 }
@@ -137,6 +168,15 @@ QPen Series::getPen()
     return pen;
 }
 
+void Series::setVisible(bool v)
+{
+    visible = v;
+}
+
+bool Series::getVisible()
+{
+    return visible;
+}
 
 
 CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
@@ -178,7 +218,6 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
     rmb_pressed = false;
     mmb_pressed = false;
 
-
     autoXLimit = true;
     autoYLimit = true;
 
@@ -194,6 +233,12 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
     dashes << 10 << 7;
     crossPen.setDashPattern(dashes);
     crossPen.setWidth(1);
+
+    draw_inf_enabled = false;
+
+    setFocusPolicy(Qt::StrongFocus);
+
+    zoom_rect_draw_enable = false;
 }
 
 
@@ -476,9 +521,10 @@ QPen CoolChart::getCrossPen()
     return crossPen;
 }
 
-
-
-
+QList<Series> *CoolChart::getSeries()
+{
+    return &series;
+}
 
 //*********************************************************************
 //------------------------public-Functions-----------------------------
@@ -527,6 +573,27 @@ void CoolChart::clear()
 //*********************************************************************
 //------------------------private-Functions----------------------------
 //*********************************************************************
+
+bool CoolChart::doesPhisycalLineBelongToChart(QLineF l)
+{
+    double x1 = l.p1().x();
+    double y1 = l.p1().y();
+    double x2 = l.p2().x();
+    double y2 = l.p2().y();
+
+    if (
+        (do_lines_cross(x1, y1, x2, y2,  xMin, yMax, xMax, yMax) ||
+        do_lines_cross(x1, y1, x2, y2,   xMax, yMax, xMax, yMin) ||
+        do_lines_cross(x1, y1, x2, y2,   xMax, yMin, xMin, yMin) ||
+        do_lines_cross(x1, y1, x2, y2,   xMin, yMin, xMin, yMax) ||
+        ((x1 >= xMin) && (x1 <= xMax) && (y1 >= yMin) && (y1 <= yMax)) ||
+        ((x2 >= xMin) && (x2 <= xMax) && (y2 >= yMin) && (y2 <= yMax))
+        )
+       )
+       return true;
+    else
+       return false;
+}
 
 bool CoolChart::doesPhisycalPointBelongToChart(QPointF p)
 {
@@ -673,6 +740,7 @@ void CoolChart::drawAllSeries(QPainter& p)
 
 void CoolChart::drawSeries(int i, QPainter& p)
 {
+    if (!series[i].getVisible()) return;
     if (series[i].getType() == Line) {
         drawLineSeries(i, p);
     }
@@ -683,19 +751,85 @@ void CoolChart::drawSeries(int i, QPainter& p)
 
 void CoolChart::drawLineSeries(int i, QPainter& p)
 {
-    p.setPen(series[i].getPen());
+
     QLine l;
     if (series[i].getXY()->size() > 1) {
-        for (int j = 0; j < series[i].getXY()->size() - 1; j++) {
+        series[i].getXYPix()->clear();
+        series[i].avg_vis_sum_y = 0;
+        series[i].avg_vis_n_y = 0;
+        series[i].avg_vis_y = 0;
+
+        bool pr = false;
+
+        int si = 0;
+        if (series[i].first_drawable_point_ind != -1) {
+            if (xMin >= series[i].first_drawable_point_x) {
+                si = series[i].first_drawable_point_ind;
+            }
+            else if (series[i].first_drawable_point_ind >= 1){
+                si = series[i].first_drawable_point_ind;
+                do {
+                    //series[i].first_drawable_point_ind--;
+                    //series[i].first_drawable_point_x = series[i].first_drawable_point_ind;
+                    si--;// = series[i].first_drawable_point_ind;
+                }
+                //while (si > 1 && series[i].getXY()->operator[](si).x()/*first_drawable_point_x*/ > xMin);
+                while(si >= 1 && series[i].getXY()->operator[](si).x() > xMin);
+            }
+            else {
+                si = 0;
+                series[i].first_drawable_point_ind = -1;
+                series[i].first_drawable_point_x = -1;
+            }
+        }
+
+        p.setPen(series[i].getPen());
+
+        for (int j = si; j < series[i].getXY()->size() - 1; j++) {
 
             QLineF ph_l(series[i].getXY()->operator[](j), series[i].getXY()->operator[](j+1));
-            if (/*DoesPhisycalLineBelongToChart(ph_l)*/1) {
+            if (series[i].getXY()->operator[](j).x() > xMax) break;
+            if (doesPhisycalLineBelongToChart(ph_l)) {
+
+            //if (/*doesPhisycalPointBelongToChart(ph_l.p1()) || doesPhisycalPointBelongToChart(ph_l.p2())*/1) {
+
+                if (!pr) {
+                    series[i].first_drawable_point_ind = j;
+                    series[i].first_drawable_point_x = series[i].getXY()->operator[](j).x();
+                    pr = true;
+                }
+
                 QPoint p1 = phisycalPointToPix(series[i].getXY()->operator[](j));
                 QPoint p2 = phisycalPointToPix(series[i].getXY()->operator[](j+1));
                 l.setP1( p1 );
                 l.setP2( p2 );
-                if (calcPixDist(l) >= 1)
+                if (calcPixDist(l) >= 1) {
                     p.drawLine(l);
+                    if (series[i].getXYPix()->size() == 0) {
+                        if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p1)))
+                        {
+                            series[i].getXYPix()->append(p1);
+                            series[i].avg_vis_sum_y += series[i].getXY()->operator[](j).y();
+                            series[i].avg_vis_n_y++;
+                            series[i].avg_vis_y = series[i].avg_vis_sum_y / series[i].avg_vis_n_y;
+                        }
+                        if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p2)))
+                        {
+                            series[i].getXYPix()->append(p2);
+                            series[i].avg_vis_sum_y += series[i].getXY()->operator[](j+1).y();
+                            series[i].avg_vis_n_y++;
+                            series[i].avg_vis_y = series[i].avg_vis_sum_y / series[i].avg_vis_n_y;
+                        }
+                    }
+                    else
+                        if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p2)))
+                        {
+                            series[i].getXYPix()->append(p2);
+                            series[i].avg_vis_sum_y += series[i].getXY()->operator[](j+1).y();
+                            series[i].avg_vis_n_y++;
+                            series[i].avg_vis_y = series[i].avg_vis_sum_y / series[i].avg_vis_n_y;
+                        }
+                }
             }
         }
     }
@@ -709,6 +843,7 @@ void CoolChart::drawCircleSeries(int i, QPainter& p)
 {
     QPointF ph_p;
     QPoint p1;
+    p.setPen(series[i].getPen());
     for (int j = 0; j < series[i].getXY()->size(); j++) {
         ph_p = series[i].getXY()->operator[](j);
         if (doesPhisycalPointBelongToChart(ph_p)) {
@@ -752,10 +887,6 @@ void CoolChart::drawYNumber(QPainter& painter, int y)
     painter.scale(1, -1);
 }
 
-
-
-
-
 //*********************************************************************
 //-------------------------------Events--------------------------------
 //*********************************************************************
@@ -766,6 +897,19 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
     if (antialiased) {
         Painter.setRenderHint(QPainter::Antialiasing, true);
+    }
+
+    if (hasFocus()) {
+        QPen pen = outerRectPen;
+        QColor cl = palette().color(QPalette::Active, QPalette::Highlight);
+        pen.setColor(cl);
+        Painter.setPen(pen);
+        Painter.setBrush(Qt::transparent);
+        QRect r = this->rect();
+        r.setRight(r.right()-pen.width());
+        r.setBottom(r.bottom()-pen.width());
+        //Painter.drawRect(r);
+        Painter.drawRoundedRect(r, 2, 2);
     }
 
     //Координаты линий внешнего квадрата
@@ -790,13 +934,13 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
     Painter.setClipRect(0, 0, w_f, h_f);
 
-    if (!lmb_pressed && !mmb_pressed)
+    //if (!lmb_pressed && !mmb_pressed)
         drawAllSeries(Painter);
 
-    if (lmb_pressed) {
-        Painter.scale(1,-1);
-        Painter.drawPixmap(0, -h_f, w_f, h_f, img, 0, 0, img.width(), img.height());
-        Painter.scale(1,-1);
+    if (zoom_rect_draw_enable) {
+        //Painter.scale(1,-1);
+        //Painter.drawPixmap(0, -h_f, w_f, h_f, img, 0, 0, img.width(), img.height());
+        //Painter.scale(1,-1);
 
         QPoint p1 = QPoint(zoom_rect.x(), (zoom_rect.y()));
         QPoint p2 = QPoint(zoom_rect.x() + zoom_rect.width(), (zoom_rect.y() + zoom_rect.height()));
@@ -810,9 +954,9 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
     }
 
     if (mmb_pressed) {
-        Painter.scale(1,-1);
-        Painter.drawPixmap(0, -h_f, w_f, h_f, img, 0, 0, img.width(), img.height());
-        Painter.scale(1,-1);
+        //Painter.scale(1,-1);
+        //Painter.drawPixmap(0, -h_f, w_f, h_f, img, 0, 0, img.width(), img.height());
+        //Painter.scale(1,-1);
 
         QLine lx(QPoint(crossLineX, 0), QPoint(crossLineX, h_f));
         QLine ly(QPoint(0, crossLineY), QPoint(w_f, crossLineY));
@@ -861,6 +1005,9 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
             Painter.scale(1,-1);
         }
     }
+
+    if (draw_inf_enabled)
+        DrawInf(Painter);
 }
 
 void CoolChart::mouseMoveEvent(QMouseEvent *event)
@@ -880,6 +1027,7 @@ void CoolChart::mouseMoveEvent(QMouseEvent *event)
         update();
     }
     if (lmb_pressed) {
+        zoom_rect_draw_enable = true;
         zoom_rect = QRect(QPoint(zoom_rect.x(), zoom_rect.y()),
                           QPoint(event->pos().x() - x_f, h_f - (event->pos().y() - y_f)) );
         update();
@@ -911,9 +1059,7 @@ void CoolChart::mousePressEvent(QMouseEvent *event)
 
 void CoolChart::mouseReleaseEvent(QMouseEvent *event)
 {
-    if(event->button() == Qt::LeftButton){
-        lmb_pressed = false;
-
+    if(event->button() == Qt::LeftButton && zoom_rect_draw_enable){
         int x1, x2, y1, y2;
         zoom_rect.getCoords(&x1, &y1, &x2, &y2) ;
 
@@ -922,16 +1068,42 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
                 QRectF r = zoom_stack.pop();
                 double x1, x2, y1, y2;
                 r.getCoords(&x1, &x2, &y1, &y2) ;
+                setAutoXLimits(true);
+                setAutoYLimits(true);
                 setLimits(x1,x2,y1,y2);
                 update();
             }
             else {
+                setAutoXLimits(true);
+                setAutoYLimits(true);
+
+                double xmin = DBL_MAX, ymin = DBL_MAX;
+                double xmax = DBL_MIN, ymax = DBL_MIN;
+                for (int i = 0; i < series.size(); i++) {
+                    for (int j = 0; j < series[i].getXY()->size(); j++) {
+                        double x = series[i].getXY()->operator[](j).x();
+                        double y = series[i].getXY()->operator[](j).y();
+                        if (x < xmin) xmin = x;
+                        if (x > xmax) xmax = x;
+                        if (y < ymin) ymin = y;
+                        if (y > ymax) ymax = y;
+                    }
+                }
+
+                setXMin(xmin);
+                setXMax(xmax);
+
+                setYMin(ymin);
+                setYMax(ymax);
+
                 update();
             }
         }
         else if (x1 < x2) {
             QRectF r(QPointF(xMin, xMax), QPointF(yMin, yMax));
             zoom_stack.push(r);
+            setAutoXLimits(false);
+            setAutoYLimits(false);
             zoomByRect(zoom_rect);
             update();
         }
@@ -942,5 +1114,58 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
     else if (event->button() == Qt::MiddleButton) {
         mmb_pressed = false;
         update();
+    }
+
+    zoom_rect_draw_enable = false;
+    lmb_pressed = false;
+}
+
+void CoolChart::DrawInf(QPainter& p)
+{
+    QPen pn;
+    pn.setWidth(1);
+    pn.setCapStyle(Qt::SquareCap);
+    pn.setJoinStyle(Qt::MiterJoin);
+
+    QFont font = p.font();
+    font.setPixelSize(10);
+    p.setFont(font);
+
+    for (int i = 0; i < series.size(); i++) {
+            double avg = series[i].getAvgY();
+            double avg_vis = series[i].avg_vis_y;
+            p.scale(1, -1);
+            QPoint p_txt(5, (-h_f+10) + (font.pixelSize()*i));
+            pn.setColor(series[i].getPen().color());
+            p.setPen(pn);
+            p.drawText(p_txt, series[i].getName() + ": " + "avg: " + QString::number(avg, 'f', 3) + "; avg_vis: " + QString::number(avg_vis, 'f', 3));
+            p.scale(1, -1);
+        }
+}
+
+void CoolChart::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Space)
+    {
+        draw_inf_enabled = !draw_inf_enabled;
+        update();
+    }
+}
+
+bool CoolChart::do_lines_cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+{
+double Ua, Ub, numerator_a, numerator_b, denominator;
+    denominator=(y4-y3)*(x1-x2)-(x4-x3)*(y1-y2);
+    if (denominator == 0){
+        if ( (x1*y2-x2*y1)*(x4-x3) - (x3*y4-x4*y3)*(x2-x1) == 0 && (x1*y2-x2*y1)*(y4-y3) - (x3*y4-x4*y3)*(y2-y1) == 0)
+            return true;
+        else return false;
+    }
+    else{
+        numerator_a=(x4-x2)*(y4-y3)-(x4-x3)*(y4-y2);
+        numerator_b=(x1-x2)*(y4-y2)-(x4-x2)*(y1-y2);
+        Ua=numerator_a/denominator;
+        Ub=numerator_b/denominator;
+        return  (Ua >=0 && Ua <=1 && Ub >=0 && Ub <=1 ? true : false);
     }
 }
