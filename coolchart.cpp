@@ -1,7 +1,6 @@
 #include "coolchart.h"
 
 #include <QApplication>
-#include <QDesktopWidget>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScreen>
@@ -675,7 +674,6 @@ QPixmap CoolChart::grabScreenshot()
     QRect wr = this->rect();
     QPoint r1 = mapToGlobal(QPoint(wr.x(), wr.y()));
     QPoint r2 = mapToGlobal(QPoint(wr.x() + wr.width(), wr.y() + wr.height()));
-    QRect gwr(r1,r2);
 
     QPoint t1 (r1 + QPoint(x_f, y_f) );
     QPoint t2 (r1 + QPoint(x_f+w_f-1, y_f+h_f-1) );
@@ -994,7 +992,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
             int fontheight = fm.height();
             int fontwidth = fm.horizontalAdvance(s);
 
-            int r = r, g, b;
+            int r, g, b;
             p.color().getRgb(&r, &g, &b);
 
             int intclr = (r<<16) | (g <<8) | b;
