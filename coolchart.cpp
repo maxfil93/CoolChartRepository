@@ -673,7 +673,7 @@ QPixmap CoolChart::grabScreenshot()
 {
     QRect wr = this->rect();
     QPoint r1 = mapToGlobal(QPoint(wr.x(), wr.y()));
-    QPoint r2 = mapToGlobal(QPoint(wr.x() + wr.width(), wr.y() + wr.height()));
+    //QPoint r2 = mapToGlobal(QPoint(wr.x() + wr.width(), wr.y() + wr.height()));
 
     QPoint t1 (r1 + QPoint(x_f, y_f) );
     QPoint t2 (r1 + QPoint(x_f+w_f-1, y_f+h_f-1) );
