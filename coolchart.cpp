@@ -201,7 +201,7 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
     gridLineCountX = 5, gridLineCountY = 5;
 
     //Физические границы построения
-    xMin = DBL_MAX, xMax = -DBL_MAX, yMin = DBL_MAX, yMax = -DBL_MAX;
+    xMin = 0, xMax = 10, yMin = 0, yMax = 10;
 
     textFont.setFamily("Consolas");
     textFont.setPointSize(10);
@@ -238,6 +238,9 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
     setFocusPolicy(Qt::StrongFocus);
 
     zoom_rect_draw_enable = false;
+
+    zoom_by_wheel_x = false;
+    zoom_by_wheel_y = false;
 }
 
 
@@ -557,10 +560,10 @@ void CoolChart::clear()
 {
     series.clear();
     if (autoXLimit) {
-        xMin = DBL_MAX, xMax = -DBL_MAX;
+        xMin = 0, xMax = 10;
     }
     if (autoYLimit) {
-        yMin = DBL_MAX, yMax = -DBL_MAX;
+        yMin = 0, yMax = 10;
     }
     update();
 }
@@ -1148,6 +1151,26 @@ void CoolChart::keyPressEvent(QKeyEvent* event)
         draw_inf_enabled = !draw_inf_enabled;
         update();
     }
+
+    if (event->key() == Qt::Key_Control) {
+        this->zoom_by_wheel_x = true;
+        this->zoom_by_wheel_y = false;
+    }
+
+    if (event->key() == Qt::Key_Shift) {
+       this->zoom_by_wheel_x = false;
+       this->zoom_by_wheel_y = true;
+    }
+}
+
+void CoolChart::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control) {
+        this->zoom_by_wheel_x = false;
+    }
+    if (event->key() == Qt::Key_Shift) {
+        this->zoom_by_wheel_y = false;
+    }
 }
 
 bool CoolChart::do_lines_cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
@@ -1166,4 +1189,40 @@ double Ua, Ub, numerator_a, numerator_b, denominator;
         Ub=numerator_b/denominator;
         return  (Ua >=0 && Ua <=1 && Ub >=0 && Ub <=1 ? true : false);
     }
+}
+
+void CoolChart::wheelEvent(QWheelEvent* event)
+{
+    int numDegrees = event->angleDelta().y();
+    int x = event->pos().x() - this->x_f;
+    int y = this->h_f - (event->pos().y() - this->y_f);
+    this->setAutoXLimits(false);
+    this->setAutoYLimits(false);
+    QPointF ph_p = this->pixPointToPhisycal(QPoint(x, y));
+
+    double ww = this->xMax - this->xMin;
+    double hh = this->yMax - this->yMin;
+
+    double scale_factor = numDegrees > 0 ? 0.9 : 1.1;
+
+    if (this->zoom_by_wheel_x && !this->zoom_by_wheel_y) {
+        this->xMin = ph_p.x() - (ww / 2. * scale_factor);
+        this->xMax = ph_p.x() + (ww / 2. * scale_factor);
+    }
+    else if (this->zoom_by_wheel_y and not this->zoom_by_wheel_x) {
+        this->yMin = ph_p.y() - (hh / 2. * scale_factor);
+        this->yMax = ph_p.y() + (hh / 2. * scale_factor);
+    }
+    else if (!this->zoom_by_wheel_y and !this->zoom_by_wheel_x) {
+        this->xMin = ph_p.x() - (ww / 2. * scale_factor);
+        this->xMax = ph_p.x() + (ww / 2. * scale_factor);
+        this->yMin = ph_p.y() - (hh / 2. * scale_factor);
+        this->yMax = ph_p.y() + (hh / 2. * scale_factor);
+    }
+
+    int p_c_x = this->x_f + (this->w_f / 2.);
+    int p_c_y = this->y_f + (this->h_f / 2.);
+    QPoint glob_p = this->mapToGlobal(QPoint(p_c_x, p_c_y));
+    QCursor::setPos(glob_p);
+    this->update();
 }

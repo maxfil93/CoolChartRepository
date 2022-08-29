@@ -119,6 +119,9 @@ private:
 
     bool zoom_rect_draw_enable;
 
+    bool zoom_by_wheel_x;
+    bool zoom_by_wheel_y;
+
     bool doesPhisycalPointBelongToChart(QPointF p);
     bool doesPhisycalLineBelongToChart(QLineF l);
     int calcPixDist(QLine l);
@@ -204,8 +207,10 @@ protected:
       void mouseMoveEvent(QMouseEvent *event) override;
       void mousePressEvent(QMouseEvent *event) override;
       void mouseReleaseEvent(QMouseEvent *event) override;
+      void wheelEvent(QWheelEvent* event)override;
 
       void keyPressEvent(QKeyEvent* event) override;
+      void keyReleaseEvent(QKeyEvent* event) override;
 };
 
 #endif // COOLCHART_H
