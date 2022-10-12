@@ -8,7 +8,16 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    ui->verticalLayout->addWidget(&chart);
+    ui->horizontalLayout->addWidget(&chart);
+    chart.showLegend(ui->horizontalLayout, true);
+    chart.getLegend()->setFont(QFont("TimesNewRoman", 14));
+    chart.setAntialiased(true);
+
+    QFont f = chart.getTextFont();
+    f.setPointSize(14);
+    chart.setTextFont(f);
+
+    chart.setMarginBottom(50);
 
     QPalette pal = palette();
     pal.setColor(QPalette::Base, Qt::black);
@@ -19,8 +28,10 @@ MainWindow::MainWindow(QWidget *parent)
     Series s1(&chart);
     Series s2(&chart);
 
-    s1.setPen(QPen(Qt::red));
-    s2.setPen(QPen(Qt::blue));
+
+
+    s1.setPen(QPen(Qt::red, 3));
+    s2.setPen(QPen(Qt::blue, 3));
 
     int id1 = chart.addSeries(s1);
     int id2 = chart.addSeries(s2);

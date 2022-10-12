@@ -3,7 +3,10 @@
 
 #include <QPen>
 #include <QStack>
+#include <QHBoxLayout>
 #include <QWidget>
+#include <QListWidget>
+#include <QColorDialog>
 
 enum SeriesType {Line, Circles};
 
@@ -98,6 +101,7 @@ private:
     bool rmb_pressed;
     bool mmb_pressed;
     QPointF rmb_pr_p_f;
+    QPoint rmb_pr_p_p;
     QRect zoom_rect;
     QPixmap img;
     QStack<QRectF> zoom_stack;
@@ -121,6 +125,7 @@ private:
 
     bool zoom_by_wheel_x;
     bool zoom_by_wheel_y;
+    bool smooth_scale;
 
     bool doesPhisycalPointBelongToChart(QPointF p);
     bool doesPhisycalLineBelongToChart(QLineF l);
@@ -139,6 +144,15 @@ private:
     void drawXNumber(QPainter& painter, int x);
     void drawYNumber(QPainter& painter, int y);
     void DrawInf(QPainter& p);
+
+    QListWidget* lw;
+    QListWidgetItem* selectedItem;
+    int selectedInd;
+
+    QColorDialog* clrDlg;
+
+    int start_px_line_x;
+    int start_px_line_y;
 
 public:
     CoolChart(QWidget *ob = 0);
@@ -192,6 +206,7 @@ public:
     bool getAutoXLimits();
     bool getAutoYLimits();
     QPen getCrossPen();
+    QListWidget* getLegend();
 
     QList<Series>* getSeries();
 
@@ -199,6 +214,10 @@ public:
     Series* getSeriesByID(int id);
     void deleteSeriesById(int id);
     void clear();
+
+    void showLegend(QLayout*lay, bool b);
+
+    QListWidgetItem* getSelectedSeriesItem();
 
     bool do_lines_cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4);
 
@@ -211,6 +230,15 @@ protected:
 
       void keyPressEvent(QKeyEvent* event) override;
       void keyReleaseEvent(QKeyEvent* event) override;
+
+      QSize sizeHint()const override;
+
+private slots:
+      void showContextMenu(const QPoint &pos);
+      void deleteSeies();
+      void openColorDialog();
+      void colorSelected(const QColor &color);
+
 };
 
 #endif // COOLCHART_H

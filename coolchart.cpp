@@ -6,6 +6,8 @@
 #include <QScreen>
 #include <math.h>
 #include <float.h>
+#include <QSizePolicy>
+#include <QMenu>
 
 int Series::cnt = 0;
 
@@ -241,9 +243,21 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
 
     zoom_by_wheel_x = false;
     zoom_by_wheel_y = false;
+
+    lw = new QListWidget(this);
+    lw->setVisible(false);
+    lw->setMaximumWidth(300);
+    lw->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(lw, &QListWidget::customContextMenuRequested, this, &CoolChart::showContextMenu);
+
+    this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    clrDlg = new QColorDialog(this);
+    connect(clrDlg, &QColorDialog::colorSelected, this, &CoolChart::colorSelected);
+
+    start_px_line_x = 0;
+    start_px_line_y = 0;
 }
-
-
 
 
 
@@ -535,6 +549,8 @@ QList<Series> *CoolChart::getSeries()
 int CoolChart::addSeries(Series s)
 {
     this->series.append(s);
+    lw->addItem(s.getName());
+    lw->item(lw->count()-1)->setForeground(s.getPen().color());
     return s.getID();
 }
 
@@ -551,6 +567,8 @@ void CoolChart::deleteSeriesById(int id)
     for (int i = 0; i < series.size(); i++) {
         if (series[i].getID() == id) {
             series.removeAt(i);
+            lw->takeItem(i);
+            break;
         }
     }
     update();
@@ -713,8 +731,9 @@ void CoolChart::drawChartGridAndNumbers(QPainter& p)
 {
     drawXNumber(p, 0);
     int px_w_sector = w_f / (gridLineCountX+1);
-    for (int i = 0; i < gridLineCountX; i++) {
-        int x = px_w_sector * (i+1);
+    int w = 0;
+    for (int i = 0; i < gridLineCountX+1; i++, w += px_w_sector) {
+        int x = start_px_line_x + px_w_sector * i;
         p.setPen(gridPen);
         p.drawLine(QLine(x, 0, x, h_f));
         drawXNumber(p, x);
@@ -723,8 +742,9 @@ void CoolChart::drawChartGridAndNumbers(QPainter& p)
 
     drawYNumber(p, 0);
     int px_h_sector = h_f / (gridLineCountY+1);
-    for (int i = 0; i < gridLineCountY; i++) {
-        int y = px_h_sector * (i+1);
+    int h = 0;
+    for (int i = 0; i < gridLineCountY+1; i++, h+= px_h_sector) {
+        int y = start_px_line_y + px_h_sector * i;
         p.setPen(gridPen);
         p.drawLine(QLine(0, y, w_f, y));
         drawYNumber(p, y);
@@ -1025,7 +1045,25 @@ void CoolChart::mouseMoveEvent(QMouseEvent *event)
 
         rmb_pr_p_f = pixPointToPhisycal(event->pos());
 
+
+
+        int dx = -(rmb_pr_p_p.x() - event->pos().x());
+        int ww = w_f / (gridLineCountX+1);
+        start_px_line_x += dx;
+        if (start_px_line_x > ww) start_px_line_x = start_px_line_x - ww;
+        else if (start_px_line_x < 0) start_px_line_x = ww + start_px_line_x;
+
+        int dy = (rmb_pr_p_p.y() - event->pos().y());
+        int hh = h_f / (gridLineCountY+1);
+        start_px_line_y += dy;
+        if (start_px_line_y > hh) start_px_line_y = start_px_line_y - hh;
+        else if (start_px_line_y < 0) start_px_line_y = hh + start_px_line_y;
+
+        rmb_pr_p_p = event->pos();
+
         update();
+
+
     }
     if (lmb_pressed) {
         zoom_rect_draw_enable = true;
@@ -1051,6 +1089,7 @@ void CoolChart::mousePressEvent(QMouseEvent *event)
     else if (event->button() == Qt::RightButton) {
         rmb_pressed = true;
         rmb_pr_p_f = pixPointToPhisycal(event->pos());
+        rmb_pr_p_p = event->pos();
     }
     else if (event->button() == Qt::MiddleButton) {
         mmb_pressed = true;
@@ -1161,6 +1200,10 @@ void CoolChart::keyPressEvent(QKeyEvent* event)
        this->zoom_by_wheel_x = false;
        this->zoom_by_wheel_y = true;
     }
+
+    if (event->key() == Qt::Key_Z) {
+       this->smooth_scale = true;
+    }
 }
 
 void CoolChart::keyReleaseEvent(QKeyEvent* event)
@@ -1170,6 +1213,9 @@ void CoolChart::keyReleaseEvent(QKeyEvent* event)
     }
     if (event->key() == Qt::Key_Shift) {
         this->zoom_by_wheel_y = false;
+    }
+    if (event->key() == Qt::Key_Z) {
+       this->smooth_scale = false;
     }
 }
 
@@ -1194,8 +1240,8 @@ double Ua, Ub, numerator_a, numerator_b, denominator;
 void CoolChart::wheelEvent(QWheelEvent* event)
 {
     int numDegrees = event->angleDelta().y();
-    int x = event->pos().x() - this->x_f;
-    int y = this->h_f - (event->pos().y() - this->y_f);
+    int x = event->position().x() - this->x_f;
+    int y = this->h_f - (event->position().y() - this->y_f);
     this->setAutoXLimits(false);
     this->setAutoYLimits(false);
     QPointF ph_p = this->pixPointToPhisycal(QPoint(x, y));
@@ -1203,7 +1249,14 @@ void CoolChart::wheelEvent(QWheelEvent* event)
     double ww = this->xMax - this->xMin;
     double hh = this->yMax - this->yMin;
 
-    double scale_factor = numDegrees > 0 ? 0.9 : 1.1;
+    double scale_factor = 0;
+
+    if (!smooth_scale) {
+        scale_factor = numDegrees > 0 ? 0.9 : 1.1;
+    }
+    else {
+        scale_factor = numDegrees > 0 ? 0.99 : 1.01;
+    }
 
     if (this->zoom_by_wheel_x && !this->zoom_by_wheel_y) {
         this->xMin = ph_p.x() - (ww / 2. * scale_factor);
@@ -1220,9 +1273,67 @@ void CoolChart::wheelEvent(QWheelEvent* event)
         this->yMax = ph_p.y() + (hh / 2. * scale_factor);
     }
 
+
+
     int p_c_x = this->x_f + (this->w_f / 2.);
     int p_c_y = this->y_f + (this->h_f / 2.);
     QPoint glob_p = this->mapToGlobal(QPoint(p_c_x, p_c_y));
     QCursor::setPos(glob_p);
     this->update();
+}
+
+QSize CoolChart::sizeHint() const
+{
+    return this->size();
+}
+
+void CoolChart::showLegend(QLayout*lay, bool b)
+{
+    lw->setVisible(b);
+    lay->addWidget(lw);
+}
+
+QListWidget* CoolChart::getLegend()
+{
+    return lw;
+}
+
+void CoolChart::showContextMenu(const QPoint &pos)
+{
+    selectedItem = lw->itemAt(pos);
+    if (selectedItem == nullptr) return;
+
+    for (int i = 0; i < lw->count(); i++) {
+        if (lw->item(i) == selectedItem) {
+            selectedInd = i;
+            break;
+        }
+    }
+    QPoint globalPos = lw->mapToGlobal(pos);
+    QMenu myMenu;
+    myMenu.addAction("Удалить",  this, &CoolChart::deleteSeies);
+    myMenu.addAction("Цвет",  this, &CoolChart::openColorDialog);
+    myMenu.exec(globalPos);
+}
+
+void CoolChart::deleteSeies()
+{
+    deleteSeriesById(series[selectedInd].getID());
+}
+
+void CoolChart::openColorDialog()
+{
+    clrDlg->setCurrentColor(series[selectedInd].getPen().color());
+    clrDlg->show();
+}
+
+void CoolChart::colorSelected(const QColor &color)
+{
+    series[selectedInd].setPen(QPen(color));
+    getSelectedSeriesItem()->setForeground(color);
+}
+
+QListWidgetItem* CoolChart::getSelectedSeriesItem()
+{
+    return selectedItem;
 }
