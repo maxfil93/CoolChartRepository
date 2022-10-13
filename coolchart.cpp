@@ -8,8 +8,30 @@
 #include <float.h>
 #include <QSizePolicy>
 #include <QMenu>
+#include <QFile>
 
 int Series::cnt = 0;
+
+#define PredefColors_NUM 16
+QColor PredefColors[PredefColors_NUM] = {
+    Qt::red,
+    Qt::green,
+    Qt::blue,
+    Qt::cyan,
+    Qt::magenta,
+    Qt::yellow,
+    Qt::darkGray,
+    Qt::gray,
+    Qt::lightGray,
+    Qt::darkRed,
+    Qt::darkGreen,
+    Qt::darkBlue,
+    Qt::darkCyan,
+    Qt::darkMagenta,
+    Qt::darkYellow,
+    Qt::white
+};
+
 
 Series::Series(CoolChart* parent)
 {
@@ -1336,4 +1358,110 @@ void CoolChart::colorSelected(const QColor &color)
 QListWidgetItem* CoolChart::getSelectedSeriesItem()
 {
     return selectedItem;
+}
+
+int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
+{
+    QFile F(fn);
+    if (!F.open(QIODevice::ReadOnly)) return 1;
+
+    QTextStream ts(&F);
+
+    QList<Series> s_list;
+
+    srand(time(0));
+    if (firstRowIsTitle) {
+        QString title = ts.readLine();
+        QStringList splitTitle = title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        int start = 0;
+        if (firstColumnIsX) start = 1;
+        for (int i = start; i < splitTitle.length(); ++i) {
+            Series s(this);
+            s.setName(splitTitle[i]);
+            QPen pen = s.getPen();
+            if (i < PredefColors_NUM) {
+                pen.setColor(PredefColors[i]);
+            }
+            else {
+                pen.setColor(QColor(rand()%255, rand()%255, rand()%255));
+            }
+            s.setPen(pen);
+            s_list.append(s);
+        }
+    }
+    else {
+        QString title = ts.readLine();
+        QStringList splitTitle = title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        int start = 0;
+        if (firstColumnIsX) start = 1;
+        for (int i = start; i < splitTitle.length(); ++i) {
+            Series s(this);
+            s.setName("Series " + QString::number(i));
+            QPen pen = s.getPen();
+            if (i < PredefColors_NUM) {
+                pen.setColor(PredefColors[i]);
+            }
+            else {
+                pen.setColor(QColor(rand()%255, rand()%255, rand()%255));
+            }
+            s.setPen(pen);
+            s_list.append(s);
+        }
+        ts.seek(0);
+    }
+
+    unsigned int cnt = 0;
+    while(!ts.atEnd()) {
+        QString row = ts.readLine();
+        QStringList splitRow = row.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        int start = 0, len = s_list.length();
+        if (firstColumnIsX) {start = 1; ++len;}
+        for (int i = start; i < splitRow.length() && i < len; ++i) {
+            bool ok = false;
+            bool ok2 = true;
+            double val = QStringToNumber(splitRow[i], &ok);
+            double X = 0;
+            if (firstColumnIsX) {
+                X = QStringToNumber(splitRow[0], &ok2);
+            }
+            else {
+                X = cnt;
+            }
+            if (ok && ok2) {
+                int ind = firstColumnIsX ? i-1 : i;
+                s_list[ind].addXY(X, val);
+            }
+        }
+        cnt++;
+    }
+
+    for (int i = 0; i < s_list.length(); i++) {
+        this->addSeries(s_list[i]);
+    }
+
+    return 0;
+}
+
+double CoolChart::QStringToNumber(QString s, bool* ok)
+{
+    s = s.trimmed();
+    double val = 0;
+    if (s.contains(',')) {
+        s = s.replace(',', '.');
+    }
+
+    if (s.contains('.')) {
+        val = s.toDouble(ok);
+        return val;
+    }
+
+
+    if (s.contains("0x")) {
+        val = s.toInt(ok, 16);
+        return val;
+    }
+    else {
+        val = s.toInt(ok, 10);
+        return val;
+    }
 }

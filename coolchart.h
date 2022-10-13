@@ -207,19 +207,18 @@ public:
     bool getAutoYLimits();
     QPen getCrossPen();
     QListWidget* getLegend();
-
     QList<Series>* getSeries();
-
     int addSeries(Series s);
     Series* getSeriesByID(int id);
     void deleteSeriesById(int id);
     void clear();
-
     void showLegend(QLayout*lay, bool b);
-
     QListWidgetItem* getSelectedSeriesItem();
-
     bool do_lines_cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4);
+
+    int plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX);
+
+    double QStringToNumber(QString s, bool* ok);
 
 protected:
       void paintEvent(QPaintEvent *event) override;

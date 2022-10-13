@@ -25,7 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     chart.setPalette(pal);
 
-    Series s1(&chart);
+    /*Series s1(&chart);
     Series s2(&chart);
 
 
@@ -39,7 +39,9 @@ MainWindow::MainWindow(QWidget *parent)
     for (double x = 0; x < 100; x+=0.1) {
         chart.getSeriesByID(id1)->addXY(x, sin(x));
         chart.getSeriesByID(id2)->addXY(x, cos(x));
-    }
+    }*/
+
+    chart.plotByFile("C:\\Users\\Max\\Desktop\\new 12.txt", true, true);
 }
 
 MainWindow::~MainWindow()
