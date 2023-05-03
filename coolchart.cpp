@@ -1351,7 +1351,9 @@ void CoolChart::openColorDialog()
 
 void CoolChart::colorSelected(const QColor &color)
 {
-    series[selectedInd].setPen(QPen(color));
+    QPen p = series[selectedInd].getPen();
+    p.setColor(color);
+    series[selectedInd].setPen(p);
     getSelectedSeriesItem()->setForeground(color);
 }
 
