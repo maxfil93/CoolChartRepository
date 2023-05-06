@@ -7,8 +7,12 @@
 #include <QWidget>
 #include <QListWidget>
 #include <QColorDialog>
+#include <QOpenGLWidget>
 
 enum SeriesType {Line, Circles};
+
+#define Font_NUM 5
+enum FontOfWhat {FTitle, FAxisXNumbers, FAxisYNumbers, FAxisXTitle, FAxisYTitle};
 
 class CoolChart;
 class Series;
@@ -68,7 +72,7 @@ public:
     double getAvgY() {return avg_y;}
 };
 
-class CoolChart : public QWidget
+class CoolChart : public QOpenGLWidget
 {
     Q_OBJECT
 
@@ -81,8 +85,8 @@ private:
 
     QBrush outerRectBrush;
 
-    QFont textFont;
-    QColor textColor;
+    QFont textFont[Font_NUM];
+    QColor textColor[Font_NUM];
 
     int marginTop, marginRight, marginBottom, marginLeft;
 
@@ -127,6 +131,10 @@ private:
     bool zoom_by_wheel_y;
     bool smooth_scale;
 
+    QString title;
+    QString xTitle;
+    QString yTitle;
+
     bool doesPhisycalPointBelongToChart(QPointF p);
     bool doesPhisycalLineBelongToChart(QLineF l);
     int calcPixDist(QLine l);
@@ -144,6 +152,8 @@ private:
     void drawXNumber(QPainter& painter, int x);
     void drawYNumber(QPainter& painter, int y);
     void DrawInf(QPainter& p);
+    void drawTitle(QPainter& painter);
+    void drawAxisTitle(QPainter& painter);
 
     QListWidget* lw;
     QListWidgetItem* selectedItem;
@@ -154,6 +164,8 @@ private:
     int start_px_line_x;
     int start_px_line_y;
 
+    int min_x_y_number;  //Минимальная координата X подписей по оси Y (Для того, чтобы узнать где рисовать заголовок оси Y)
+
 public:
     CoolChart(QWidget *ob = 0);
 
@@ -163,8 +175,7 @@ public:
     void setGridPen(const QPen &pen);
     void setGridLineCountX(int X);
     void setGridLineCountY(int Y);
-    void setTextFont(QFont font);
-    void setTextColor(QColor cl);
+    void setTextFont(QFont font, QColor color, FontOfWhat what);
     void setTextXFormat(char fmt);
     void setTextYFormat(char fmt);
     void setTextXPrecision(int precision);
@@ -182,6 +193,9 @@ public:
     void setAutoXLimits(bool autoX);
     void setAutoYLimits(bool autoY);
     void setCrossPen(QPen p);
+    void setTitle(QString tit);
+    void setXTitle(QString tit);
+    void setYTitle(QString tit);
 
     bool getAntialiased();
     QPen getOuterRectPen();
@@ -189,8 +203,8 @@ public:
     QPen getGridPen();
     int getGridLineCountX();
     int getGridLineCountY();
-    QFont getTextFont();
-    QColor getTextColor();
+    QFont getTextFont(FontOfWhat what);
+    QColor getTextColor(FontOfWhat what);
     char getTextXFormat();
     char getTextYFormat();
     int getTextXPrecision();
@@ -208,6 +222,10 @@ public:
     QPen getCrossPen();
     QListWidget* getLegend();
     QList<Series>* getSeries();
+    QString getTitle();
+    QString getXTitle();
+    QString getYTitle();
+
     int addSeries(Series s);
     Series* getSeriesByID(int id);
     void deleteSeriesById(int id);

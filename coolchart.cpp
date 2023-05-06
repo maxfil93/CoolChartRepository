@@ -9,6 +9,9 @@
 #include <QSizePolicy>
 #include <QMenu>
 #include <QFile>
+#include <QElapsedTimer>
+#include <iostream>
+#include <QPainterPath>
 
 int Series::cnt = 0;
 
@@ -202,7 +205,7 @@ bool Series::getVisible()
 }
 
 
-CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
+CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
 {
     antialiased = false;
 
@@ -213,7 +216,7 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
     outerRectPen.setJoinStyle(Qt::MiterJoin);
     outerRectBrush.setColor(Qt::black);
     outerRectBrush.setStyle(Qt::SolidPattern);
-    marginTop = 20, marginRight = 10, marginBottom = 20, marginLeft = 100;
+    marginTop = 40, marginRight = 10, marginBottom = 40, marginLeft = 100;
     //marginTop = 0, marginRight = 0, marginBottom = 0, marginLeft = 0;
 
     //Сетка
@@ -227,9 +230,12 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
     //Физические границы построения
     xMin = 0, xMax = 10, yMin = 0, yMax = 10;
 
-    textFont.setFamily("Consolas");
-    textFont.setPointSize(10);
-    textColor = Qt::white;
+    for (int i = 0; i < Font_NUM; i++) {
+        this->textFont[i].setFamily("Consolas");
+        this->textFont[i].setPointSize(10);
+        this->textColor[i] = Qt::white;
+    }
+
 
     setBackgroundRole(QPalette::Base);
     setAutoFillBackground(true);
@@ -279,6 +285,8 @@ CoolChart::CoolChart(QWidget *ob) : QWidget(ob)
 
     start_px_line_x = 0;
     start_px_line_y = 0;
+
+    min_x_y_number = MAXINT32;
 }
 
 
@@ -323,15 +331,11 @@ void CoolChart::setGridLineCountY(int Y)
     update();
 }
 
-void CoolChart::setTextFont(QFont font)
+void CoolChart::setTextFont(QFont font, QColor color, FontOfWhat what)
 {
-    this->textFont = font;
+    this->textFont[what] = font;
+    this->textColor[what] = color;
     update();
-}
-
-void CoolChart::setTextColor(QColor cl)
-{
-    textColor = cl;
 }
 
 void CoolChart::setTextXFormat(char fmt)
@@ -435,9 +439,20 @@ void CoolChart::setCrossPen(QPen p)
     crossPen = p;
 }
 
+void CoolChart::setTitle(QString tit)
+{
+    title = tit;
+}
 
+void CoolChart::setXTitle(QString tit)
+{
+    xTitle = tit;
+}
 
-
+void CoolChart::setYTitle(QString tit)
+{
+    yTitle = tit;
+}
 
 
 //*********************************************************************
@@ -474,14 +489,14 @@ int CoolChart::getGridLineCountY()
     return gridLineCountY;
 }
 
-QFont CoolChart::getTextFont()
+QFont CoolChart::getTextFont(FontOfWhat what)
 {
-    return textFont;
+    return textFont[what];
 }
 
-QColor CoolChart::getTextColor()
+QColor CoolChart::getTextColor(FontOfWhat what)
 {
-    return textColor;
+    return textColor[what];
 }
 
 char CoolChart::getTextXFormat()
@@ -794,7 +809,6 @@ void CoolChart::drawSeries(int i, QPainter& p)
 
 void CoolChart::drawLineSeries(int i, QPainter& p)
 {
-
     QLine l;
     if (series[i].getXY()->size() > 1) {
         series[i].getXYPix()->clear();
@@ -827,6 +841,9 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
         }
 
         p.setPen(series[i].getPen());
+        p.setBrush(QBrush(Qt::transparent));
+
+        QPainterPath pl;
 
         for (int j = si; j < series[i].getXY()->size() - 1; j++) {
 
@@ -836,18 +853,24 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
 
             //if (/*doesPhisycalPointBelongToChart(ph_l.p1()) || doesPhisycalPointBelongToChart(ph_l.p2())*/1) {
 
-                if (!pr) {
-                    series[i].first_drawable_point_ind = j;
-                    series[i].first_drawable_point_x = series[i].getXY()->operator[](j).x();
-                    pr = true;
-                }
-
                 QPoint p1 = phisycalPointToPix(series[i].getXY()->operator[](j));
                 QPoint p2 = phisycalPointToPix(series[i].getXY()->operator[](j+1));
                 l.setP1( p1 );
                 l.setP2( p2 );
+
+                if (!pr) {
+                    series[i].first_drawable_point_ind = j;
+                    series[i].first_drawable_point_x = series[i].getXY()->operator[](j).x();
+                    pr = true;
+                    pl.moveTo(p1);
+                }
+
+
+
                 if (calcPixDist(l) >= 1) {
-                    p.drawLine(l);
+                    //p.drawLine(l);
+                    pl.moveTo(p1);
+                    pl.lineTo(p2);
                     if (series[i].getXYPix()->size() == 0) {
                         if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p1)))
                         {
@@ -875,6 +898,7 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
                 }
             }
         }
+        p.drawPath(pl);
     }
     else if (series[i].getXY()->size() == 1) {
         QPoint p1 = phisycalPointToPix(series[i].getXY()->operator[](0));
@@ -899,12 +923,11 @@ void CoolChart::drawCircleSeries(int i, QPainter& p)
 void CoolChart::drawXNumber(QPainter& painter, int x)
 {
     //Подписи оси X
-    painter.setFont(textFont);
-    painter.setPen(textColor);
+    painter.setFont(textFont[FAxisXNumbers]);
+    painter.setPen(textColor[FAxisXNumbers]);
     QPointF xy = pixPointToPhisycal(QPoint(x, 0));
     QString s = QString::number( xy.x(), textX_fmt, textX_prec );
-    painter.setFont(textFont);
-    QFontMetrics fm(textFont);
+    QFontMetrics fm(textFont[FAxisXNumbers]);
     int fontheight = fm.height();
     int fontwidth = fm.horizontalAdvance(s);
     QPoint p_txt(x - fontwidth / 2, 0 - outerRectPen.width() + fontheight + 4);
@@ -916,17 +939,52 @@ void CoolChart::drawXNumber(QPainter& painter, int x)
 void CoolChart::drawYNumber(QPainter& painter, int y)
 {
     //Подписи оси Y
-    painter.setFont(textFont);
-    painter.setPen(textColor);
+    painter.setFont(textFont[FAxisYNumbers]);
+    painter.setPen(textColor[FAxisYNumbers]);
     QPointF xy = pixPointToPhisycal(QPoint(0, y));
     QString s = QString::number( xy.y(), textY_fmt, textY_prec );
-    painter.setFont(textFont);
-    QFontMetrics fm(textFont);
+    QFontMetrics fm(textFont[FAxisYNumbers]);
     int fontheight = fm.height();
     int fontwidth = fm.horizontalAdvance(s);
     QPoint p_txt( -(fontwidth + outerRectPen.width() + 4), -(y - fontheight/2 + 3));
+    if (p_txt.x() < min_x_y_number) min_x_y_number = p_txt.x();
     painter.scale(1, -1);
     painter.drawText(p_txt, s);
+    painter.scale(1, -1);
+}
+
+void CoolChart::drawTitle(QPainter& painter)
+{
+    painter.setFont(textFont[FTitle]);
+    painter.setPen(textColor[FTitle]);
+    QFontMetrics fm(textFont[FTitle]);
+    painter.drawText(rect(), Qt::AlignTop | Qt::AlignHCenter, title);
+}
+
+void CoolChart::drawAxisTitle(QPainter& painter)
+{
+    painter.setFont(textFont[FAxisXTitle]);
+    painter.setPen(textColor[FAxisXTitle]);
+    QFontMetrics fm(textFont[FAxisXTitle]);
+    QFontMetrics fm2(textFont[FAxisXNumbers]);
+    QRect rr(w_f / 2 - fm.horizontalAdvance(xTitle) / 2, fm2.height() + outerRectPen.width() + 4, fm.horizontalAdvance(xTitle), fm.height());
+    painter.scale(1, -1);
+    painter.drawText(rr, Qt::AlignHCenter | Qt::AlignVCenter, xTitle);
+    painter.scale(1, -1);
+
+
+    painter.setFont(textFont[FAxisYTitle]);
+    painter.setPen(textColor[FAxisYTitle]);
+    QFontMetrics fm1(textFont[FAxisYTitle]);
+    QRect rr1(min_x_y_number - fm1.horizontalAdvance(yTitle) / 2 - 5, -((h_f / 2) + fm1.height()/2), fm1.horizontalAdvance(yTitle), fm1.height());
+    painter.scale(1, -1);
+    painter.save();
+    painter.translate(rr1.center());
+    painter.rotate(-90);
+    painter.translate(-rr1.center());
+    painter.drawText(rr1, yTitle);
+    painter.rotate(90);
+    painter.restore();
     painter.scale(1, -1);
 }
 
@@ -936,6 +994,9 @@ void CoolChart::drawYNumber(QPainter& painter, int y)
 
 void CoolChart::paintEvent(QPaintEvent * /* event */)
 {
+    QElapsedTimer timer;
+    timer.start();
+
     QPainter Painter(this);
 
     if (antialiased) {
@@ -964,16 +1025,20 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
     //Координаты квадрата заполнения
     x_f = marginLeft+outerRectPen.width();
     y_f = marginTop+outerRectPen.width();
-    w_f = this->width() - marginLeft - marginRight - outerRectPen.width()-outerRectPen.width();
-    h_f = this->height() - marginTop - marginBottom - outerRectPen.width()-outerRectPen.width();
+    w_f = this->width() - marginLeft - marginRight - outerRectPen.width()-outerRectPen.width()-1;
+    h_f = this->height() - marginTop - marginBottom - outerRectPen.width()-outerRectPen.width()-1;
 
     drawChartRectangle(Painter);
+    drawTitle(Painter);
+
 
     Painter.translate(x_f , y_f + h_f);
     Painter.scale(1, -1);
 
     //Начинаем рисовать
     drawChartGridAndNumbers(Painter);
+
+    drawAxisTitle(Painter);
 
     Painter.setClipRect(0, 0, w_f, h_f);
 
@@ -1027,13 +1092,13 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
             QPointF nr = findNearestPointByX(series[i], pntf.x());
             QPoint pp = phisycalPointToPix(nr);
             p.setColor(series[i].getPen().color());
-            p.setWidth(/*series[i].getPen().width()*/2);
+            p.setWidth(2); //series[i].getPen().width()
             Painter.setPen(p);
             Painter.drawEllipse(pp, series[i].getPen().width()*2, series[i].getPen().width()*2);
 
             QString s = "(" + QString::number(nr.x()) + "; " + QString::number(nr.y()) + ")";
 
-            QFontMetrics fm(textFont);
+            QFontMetrics fm(textFont[FAxisXNumbers]);
             int fontheight = fm.height();
             int fontwidth = fm.horizontalAdvance(s);
 
@@ -1051,6 +1116,8 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
     if (draw_inf_enabled)
         DrawInf(Painter);
+
+    std::cout << "The slow operation took " << timer.elapsed() << " milliseconds" << std::endl;
 }
 
 void CoolChart::mouseMoveEvent(QMouseEvent *event)
