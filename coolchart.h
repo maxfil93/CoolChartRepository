@@ -8,6 +8,11 @@
 #include <QListWidget>
 #include <QColorDialog>
 #include <QOpenGLWidget>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QComboBox>
+#include <QSpinBox>
+#include <QLabel>
 
 enum SeriesType {Line, Circles};
 
@@ -159,7 +164,17 @@ private:
     QListWidgetItem* selectedItem;
     int selectedInd;
 
+
     QColorDialog* clrDlg;
+    QLineEdit* edName;
+    QSpinBox* ed;
+    QComboBox* cb;
+    QHBoxLayout* l1;
+    QHBoxLayout* l2;
+    QHBoxLayout* l3;
+    QLabel* lab1;
+    QLabel* lab2;
+    QLabel* lab3;
 
     int start_px_line_x;
     int start_px_line_y;

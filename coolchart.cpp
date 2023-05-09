@@ -12,6 +12,7 @@
 #include <QElapsedTimer>
 #include <iostream>
 #include <QPainterPath>
+#include <QTextStream>
 
 int Series::cnt = 0;
 
@@ -281,12 +282,44 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     clrDlg = new QColorDialog(this);
+    clrDlg->setWindowTitle("Series properties");
     connect(clrDlg, &QColorDialog::colorSelected, this, &CoolChart::colorSelected);
+
+    l1 = new QHBoxLayout(clrDlg);
+    l2 = new QHBoxLayout(clrDlg);
+    l3 = new QHBoxLayout(clrDlg);
+
+    lab1 = new QLabel("Name", clrDlg);
+    lab2 = new QLabel("Width", clrDlg);
+    lab3 = new QLabel("Type", clrDlg);
+
+    lab1->setFixedWidth(80);
+    lab2->setFixedWidth(80);
+    lab3->setFixedWidth(80);
+
+    edName = new QLineEdit(clrDlg);
+    ed = new QSpinBox(clrDlg);
+    cb = new QComboBox(clrDlg);
+    cb->addItem("Line");
+    cb->addItem("Circles");
+
+    l1->addWidget(lab1);
+    l1->addWidget(edName);
+
+    l2->addWidget(lab2);
+    l2->addWidget(ed);
+
+    l3->addWidget(lab3);
+    l3->addWidget(cb);
+
+    clrDlg->layout()->addItem(l1);
+    clrDlg->layout()->addItem(l2);
+    clrDlg->layout()->addItem(l3);
 
     start_px_line_x = 0;
     start_px_line_y = 0;
 
-    min_x_y_number = MAXINT32;
+    min_x_y_number = 0x7FFFFFFF;
 }
 
 
@@ -1012,6 +1045,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
         QRect r = this->rect();
         r.setRight(r.right()-pen.width());
         r.setBottom(r.bottom()-pen.width());
+        r.setLeft(r.top()+pen.width());
         //Painter.drawRect(r);
         Painter.drawRoundedRect(r, 2, 2);
     }
@@ -1401,7 +1435,7 @@ void CoolChart::showContextMenu(const QPoint &pos)
     QPoint globalPos = lw->mapToGlobal(pos);
     QMenu myMenu;
     myMenu.addAction("Удалить",  this, &CoolChart::deleteSeies);
-    myMenu.addAction("Цвет",  this, &CoolChart::openColorDialog);
+    myMenu.addAction("Свойства",  this, &CoolChart::openColorDialog);
     myMenu.exec(globalPos);
 }
 
@@ -1413,6 +1447,9 @@ void CoolChart::deleteSeies()
 void CoolChart::openColorDialog()
 {
     clrDlg->setCurrentColor(series[selectedInd].getPen().color());
+    edName->setText(series[selectedInd].getName());
+    ed->setValue(series[selectedInd].getPen().width());
+    cb->setCurrentIndex(series[selectedInd].getType() == Line ? 0 : 1);
     clrDlg->show();
 }
 
@@ -1420,6 +1457,10 @@ void CoolChart::colorSelected(const QColor &color)
 {
     QPen p = series[selectedInd].getPen();
     p.setColor(color);
+    p.setWidth(ed->value());
+    series[selectedInd].setType(cb->currentIndex() == 0 ? Line : Circles);
+    lw->item(selectedInd)->setText(edName->text());
+    series[selectedInd].setName(edName->text());
     series[selectedInd].setPen(p);
     getSelectedSeriesItem()->setForeground(color);
 }
