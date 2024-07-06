@@ -37,7 +37,7 @@ QColor PredefColors[PredefColors_NUM] = {
 };
 
 
-Series::Series(CoolChart* parent)
+Series::Series(CoolChart* parent, QString _name)
 {
     this->parent = parent;
 
@@ -54,6 +54,13 @@ Series::Series(CoolChart* parent)
 
     id = cnt++;
 
+    if (id < PredefColors_NUM) {
+        pen.setColor(PredefColors[id]);
+    }
+    else {
+        pen.setColor(QColor(rand()%255, rand()%255, rand()%255));
+    }
+
     max_x = min_x = max_y = min_y = 0;
 
     avg_sum_y = 0;
@@ -64,7 +71,10 @@ Series::Series(CoolChart* parent)
     avg_vis_n_y = 0;
     avg_vis_y = 0;
 
-    name = "Series" + QString::number(id);
+    if (_name.isEmpty())
+        name = "Series" + QString::number(id);
+    else
+        name = _name;
 
     first_drawable_point_ind = -1;
     first_drawable_point_x = -1;
@@ -79,20 +89,40 @@ void Series::addXY(QPointF p)
     avg_y = avg_sum_y / avg_n_y;
 
     if (xy.size() == 1) {
-        max_x = p.x();
-        min_x = p.x();
-        max_y = p.y();
-        min_y = p.y();
+        if (type != Gantt) {
+            max_x = p.x();
+            min_x = p.x();
+            max_y = p.y();
+            min_y = p.y();
+        }
+        else {
+            max_x = p.x() + p.y();
+            min_x = p.x();
+//            max_y = p.y();
+//            min_y = p.y();
+        }
     }
 
-    if (p.x() > max_x)
-        max_x = p.x();
-    if (p.x() < min_x)
-        min_x = p.x();
-    if (p.y() > max_y)
-        max_y = p.y();
-    if (p.y() < min_y)
-        min_y = p.y();
+    if (type != Gantt) {
+        if (p.x() > max_x)
+            max_x = p.x();
+        if (p.x() < min_x)
+            min_x = p.x();
+        if (p.y() > max_y)
+            max_y = p.y();
+        if (p.y() < min_y)
+            min_y = p.y();
+    }
+    else {
+        if (p.x() + p.y() > max_x)
+            max_x = p.x() + p.y();
+        if (p.x() < min_x)
+            min_x = p.x();
+//        if (p.y() > max_y)
+//            max_y = p.y();
+//        if (p.y() < min_y)
+//            min_y = p.y();
+    }
 
     if (parent->getAutoXLimits()) {
         if (min_x < parent->getXMin()) parent->setXMin(min_x);
@@ -116,20 +146,40 @@ void Series::addXY(double x, double y)
     avg_y = avg_sum_y / avg_n_y;
 
     if (xy.size() == 1) {
-        max_x = p.x();
-        min_x = p.x();
-        max_y = p.y();
-        min_y = p.y();
+        if (type != Gantt) {
+            max_x = p.x();
+            min_x = p.x();
+            max_y = p.y();
+            min_y = p.y();
+        }
+        else {
+            max_x = p.x() + p.y();
+            min_x = p.x();
+//            max_y = p.y();
+//            min_y = p.y();
+        }
     }
 
-    if (p.x() > max_x)
-        max_x = p.x();
-    if (p.x() < min_x)
-        min_x = p.x();
-    if (p.y() > max_y)
-        max_y = p.y();
-    if (p.y() < min_y)
-        min_y = p.y();
+    if (type != Gantt) {
+        if (p.x() > max_x)
+            max_x = p.x();
+        if (p.x() < min_x)
+            min_x = p.x();
+        if (p.y() > max_y)
+            max_y = p.y();
+        if (p.y() < min_y)
+            min_y = p.y();
+    }
+    else {
+        if (p.x() + p.y() > max_x)
+            max_x = p.x() + p.y();
+        if (p.x() < min_x)
+            min_x = p.x();
+//        if (p.y() > max_y)
+//            max_y = p.y();
+//        if (p.y() < min_y)
+//            min_y = p.y();
+    }
 
     if (parent->getAutoXLimits()) {
         if (min_x < parent->getXMin()) parent->setXMin(min_x);
@@ -632,6 +682,14 @@ Series* CoolChart::getSeriesByID(int id)
     return nullptr;
 }
 
+Series* CoolChart::getSeriesByName(QString _name)
+{
+    for (int i = 0; i < series.size(); i++) {
+        if (series[i].getName() == _name) return &(series[i]);
+    }
+    return nullptr;
+}
+
 void CoolChart::deleteSeriesById(int id)
 {
     for (int i = 0; i < series.size(); i++) {
@@ -838,6 +896,9 @@ void CoolChart::drawSeries(int i, QPainter& p)
     else if (series[i].getType() == Circles) {
         drawCircleSeries(i, p);
     }
+    else if (series[i].getType() == Gantt) {
+        drawGanttSeries(i, p);
+    }
 }
 
 void CoolChart::drawLineSeries(int i, QPainter& p)
@@ -950,6 +1011,50 @@ void CoolChart::drawCircleSeries(int i, QPainter& p)
             p1 = phisycalPointToPix(ph_p);
             p.drawEllipse(p1, series[i].getPen().width()/2, series[i].getPen().width()/2);
         }
+    }
+}
+
+void CoolChart::drawGanttSeries(int i, QPainter& p)
+{
+    unsigned int n_gantt_series = 0;
+    unsigned int this_gantt_series_num = 0;
+    for (int j = 0; j < series.size(); j++) {
+        if (series[j].getType() == Gantt) {
+            n_gantt_series++;
+            if (&series[i] == &series[j]) {
+                this_gantt_series_num = n_gantt_series-1;
+            }
+        }
+    }
+
+    std::cout << "n_gantt_series = " << n_gantt_series << std::endl;
+    std::cout << "this_gantt_series_num = " << this_gantt_series_num << std::endl;
+
+    QPointF ph_p;
+    QPoint p1, p2;
+
+    QPen ppp = series[i].getPen();
+    ppp.setJoinStyle(Qt::BevelJoin);
+    int wi = 5; //h_f / n_gantt_series;
+    ppp.setWidth(wi);
+    p.setPen(ppp);
+
+    bool btc_pr = false;
+    for (int j = 0; j < series[i].getXY()->size(); j++) {
+        ph_p = series[i].getXY()->operator[](j);
+        QPointF ps(ph_p.x(), this_gantt_series_num);
+        QPointF pe(ph_p.x() + ph_p.y(), this_gantt_series_num);
+        QLineF ph_line(ps, pe);
+        bool btc = doesPhisycalLineBelongToChart(ph_line);
+        if (btc) {
+            p1 = phisycalPointToPix(ps);
+            p2 = phisycalPointToPix(pe);
+            p.drawLine(p1,p2);
+        }
+        else if (btc_pr) {
+            return;
+        }
+        btc_pr = btc;
     }
 }
 
@@ -1244,12 +1349,23 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
                 double xmax = DBL_MIN, ymax = DBL_MIN;
                 for (int i = 0; i < series.size(); i++) {
                     for (int j = 0; j < series[i].getXY()->size(); j++) {
-                        double x = series[i].getXY()->operator[](j).x();
-                        double y = series[i].getXY()->operator[](j).y();
-                        if (x < xmin) xmin = x;
-                        if (x > xmax) xmax = x;
-                        if (y < ymin) ymin = y;
-                        if (y > ymax) ymax = y;
+                        double x,y;
+                        if (series[i].getType() != Gantt) {
+                            x = series[i].getXY()->operator[](j).x();
+                            y = series[i].getXY()->operator[](j).y();
+                            if (x < xmin) xmin = x;
+                            if (x > xmax) xmax = x;
+                            if (y < ymin) ymin = y;
+                            if (y > ymax) ymax = y;
+                        }
+                        else {
+                            x = series[i].getXY()->operator[](j).x();
+                            y = series[i].getXY()->operator[](j).x() + series[i].getXY()->operator[](j).y();
+                            if (x < xmin) xmin = x;
+                            if (y > xmax) xmax = y;
+                            if (y < ymin) ymin = y;
+                            if (y > ymax) ymax = y;
+                        }
                     }
                 }
 

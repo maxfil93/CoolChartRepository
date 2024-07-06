@@ -14,7 +14,7 @@
 #include <QSpinBox>
 #include <QLabel>
 
-enum SeriesType {Line, Circles};
+enum SeriesType {Line, Circles, Gantt};
 
 #define Font_NUM 5
 enum FontOfWhat {FTitle, FAxisXNumbers, FAxisYNumbers, FAxisXTitle, FAxisYTitle};
@@ -52,7 +52,7 @@ public:
     int first_drawable_point_ind;
     double first_drawable_point_x;
 
-    Series(CoolChart* parent);
+    Series(CoolChart* parent, QString name = "");
 
     void addXY(QPointF p);
     void addXY(double x, double y);
@@ -154,6 +154,7 @@ private:
     void drawSeries(int i, QPainter& p);
     void drawLineSeries(int i, QPainter& p);
     void drawCircleSeries(int i, QPainter& p);
+    void drawGanttSeries(int i, QPainter& p);
     void drawXNumber(QPainter& painter, int x);
     void drawYNumber(QPainter& painter, int y);
     void DrawInf(QPainter& p);
@@ -243,6 +244,7 @@ public:
 
     int addSeries(Series s);
     Series* getSeriesByID(int id);
+    Series* getSeriesByName(QString _name);
     void deleteSeriesById(int id);
     void clear();
     void showLegend(QLayout*lay, bool b);

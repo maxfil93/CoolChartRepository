@@ -35,18 +35,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     chart.setPalette(pal);
 
-    Series s1(&chart);
-    Series s2(&chart);
 
-    s1.setPen(QPen(Qt::red, 3));
-    s2.setPen(QPen(Qt::blue, 3));
-
-    int id1 = chart.addSeries(s1);
-    int id2 = chart.addSeries(s2);
-
-    for (double x = 0; x < 1000000; x+=1) {
-        chart.getSeriesByID(id1)->addXY(x, sin(x));
-        chart.getSeriesByID(id2)->addXY(x, cos(x));
+    for (int i = 0; i < 50; i++) {
+        Series s(&chart, "Имя" + QString::number(i));
+        s.setType(Gantt);
+        chart.addSeries(s);
+        for (int j = 0; j < 50; j++)
+            chart.getSeriesByName("Имя" + QString::number(i))->addXY(j*12+i, 10);
     }
 
     /*chart.getSeriesByID(id1)->addXY(0, 0);
@@ -58,7 +53,7 @@ MainWindow::MainWindow(QWidget *parent)
     chart.getSeriesByID(id1)->addXY(6, 15);
     chart.getSeriesByID(id1)->addXY(7, 0);*/
 
-    chart.plotByFile("C:\\Users\\Max\\Desktop\\new 12.txt", true, true);
+    //chart.plotByFile("C:\\Users\\Max\\Desktop\\new 12.txt", true, true);
 }
 
 MainWindow::~MainWindow()
