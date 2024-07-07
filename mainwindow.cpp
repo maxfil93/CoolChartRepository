@@ -36,13 +36,39 @@ MainWindow::MainWindow(QWidget *parent)
     chart.setPalette(pal);
 
 
-    for (int i = 0; i < 50; i++) {
-        Series s(&chart, "Имя" + QString::number(i));
-        s.setType(Gantt);
-        chart.addSeries(s);
-        for (int j = 0; j < 50; j++)
-            chart.getSeriesByName("Имя" + QString::number(i))->addXY(j*12+i, 10);
+//    for (int i = 0; i < 50; i++) {
+//        Series s(&chart, "Имя" + QString::number(i));
+//        s.setType(Gantt);
+//        chart.addSeries(s);
+//        for (int j = 0; j < 50; j++)
+//            chart.getSeriesByName("Имя" + QString::number(i))->addXY(j*12+i, 10);
+//    }
+
+    Series s1(&chart, "Имя1");
+    s1.setType(Gantt);
+    chart.addSeries(s1);
+
+    /*Series s2(&chart, "Имя2");
+    s2.setType(Gantt);
+    chart.addSeries(s2);*/
+
+
+    for (int i = 0; i < 500000; i++) {
+        chart.getSeriesByName("Имя1")->addXY(i*100+300, 50);
+       // chart.getSeriesByName("Имя2")->addXY(i*70, 30);
     }
+
+    /*Series s2(&chart, "Имя2");
+    s2.setType(Gantt);
+    chart.addSeries(s2);
+    chart.getSeriesByName("Имя2")->addXY(40, 5);
+    chart.getSeriesByName("Имя2")->addXY(50, 50);*/
+
+    /*Series s3(&chart, "Имя3");
+    s3.setType(Line);
+    chart.addSeries(s3);
+    chart.getSeriesByName("Имя3")->addXY(0, 0);
+    chart.getSeriesByName("Имя3")->addXY(50, 50);*/
 
     /*chart.getSeriesByID(id1)->addXY(0, 0);
     chart.getSeriesByID(id1)->addXY(1, 10);

@@ -44,9 +44,6 @@ Series::Series(CoolChart* parent, QString _name)
     type = Line;
     xy.clear();
 
-    brush.setColor(Qt::red);
-    brush.setStyle(Qt::SolidPattern);
-
     pen.setColor(Qt::red);
     pen.setStyle(Qt::SolidLine);
 
@@ -158,6 +155,17 @@ void Series::addXY(double x, double y)
 //            max_y = p.y();
 //            min_y = p.y();
         }
+        if (min_x == max_x) max_x += 1;
+        if (min_y == max_y) max_y += 1;
+
+        if (parent->getAutoXLimits()) {
+            parent->setXMin(min_x);
+            parent->setXMax(max_x);
+        }
+        if (parent->getAutoYLimits()) {
+            parent->setYMin(min_y);
+            parent->setYMax(max_y);
+        }
     }
 
     if (type != Gantt) {
@@ -218,12 +226,6 @@ void Series::setType(SeriesType type)
     parent->update();
 }
 
-void Series::setBrush(QBrush brush)
-{
-    this->brush = brush;
-    parent->update();
-}
-
 void Series::setPen(QPen pen)
 {
     this->pen = pen;
@@ -233,11 +235,6 @@ void Series::setPen(QPen pen)
 SeriesType Series::getType()
 {
     return type;
-}
-
-QBrush Series::getBrush()
-{
-    return brush;
 }
 
 QPen Series::getPen()
@@ -352,6 +349,7 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     cb = new QComboBox(clrDlg);
     cb->addItem("Line");
     cb->addItem("Circles");
+    cb->addItem("Gantt");
 
     l1->addWidget(lab1);
     l1->addWidget(edName);
@@ -722,6 +720,14 @@ void CoolChart::clear()
 //------------------------private-Functions----------------------------
 //*********************************************************************
 
+bool CoolChart::doesPhisycalPointBelongToChart(QPointF p)
+{
+    if (p.x() > xMin && p.x() < xMax && p.y() > yMin && p.y() < yMax) {
+        return true;
+    }
+    return false;
+}
+
 bool CoolChart::doesPhisycalLineBelongToChart(QLineF l)
 {
     double x1 = l.p1().x();
@@ -743,9 +749,25 @@ bool CoolChart::doesPhisycalLineBelongToChart(QLineF l)
        return false;
 }
 
-bool CoolChart::doesPhisycalPointBelongToChart(QPointF p)
-{
-    if (p.x() > xMin && p.x() < xMax && p.y() > yMin && p.y() < yMax) {
+bool CoolChart::doesPhisycalRectBelongToChart(QRectF r) {
+    if (doesPhisycalPointBelongToChart(r.topLeft())     ||
+        doesPhisycalPointBelongToChart(r.topRight())    ||
+        doesPhisycalPointBelongToChart(r.bottomLeft())  ||
+        doesPhisycalPointBelongToChart(r.bottomRight())
+       ) {
+        return true;
+    }
+
+    QLineF ll(r.topLeft(), r.bottomLeft()),
+           rl(r.topRight(), r. bottomRight()),
+           tl(r.topLeft(), r.topRight()),
+           bl(r.bottomLeft(), r.bottomRight());
+
+    if (doesPhisycalLineBelongToChart (ll) ||
+        doesPhisycalLineBelongToChart (rl) ||
+        doesPhisycalLineBelongToChart (tl) ||
+        doesPhisycalLineBelongToChart (bl)
+       ) {
         return true;
     }
     return false;
@@ -1027,29 +1049,16 @@ void CoolChart::drawGanttSeries(int i, QPainter& p)
         }
     }
 
-    std::cout << "n_gantt_series = " << n_gantt_series << std::endl;
-    std::cout << "this_gantt_series_num = " << this_gantt_series_num << std::endl;
-
     QPointF ph_p;
-    QPoint p1, p2;
-
-    QPen ppp = series[i].getPen();
-    ppp.setJoinStyle(Qt::BevelJoin);
-    int wi = 5; //h_f / n_gantt_series;
-    ppp.setWidth(wi);
-    p.setPen(ppp);
-
     bool btc_pr = false;
+
     for (int j = 0; j < series[i].getXY()->size(); j++) {
         ph_p = series[i].getXY()->operator[](j);
-        QPointF ps(ph_p.x(), this_gantt_series_num);
-        QPointF pe(ph_p.x() + ph_p.y(), this_gantt_series_num);
-        QLineF ph_line(ps, pe);
-        bool btc = doesPhisycalLineBelongToChart(ph_line);
+        QRectF ph_r(ph_p.x(), this_gantt_series_num + 0.5, ph_p.y(), 1);
+        bool btc = doesPhisycalRectBelongToChart(ph_r);
         if (btc) {
-            p1 = phisycalPointToPix(ps);
-            p2 = phisycalPointToPix(pe);
-            p.drawLine(p1,p2);
+            QRect pix_r(phisycalPointToPix(ph_r.topLeft()), phisycalPointToPix(ph_r.bottomRight()));
+            p.fillRect(pix_r, series[i].getPen().color());
         }
         else if (btc_pr) {
             return;
@@ -1170,7 +1179,6 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
     drawChartRectangle(Painter);
     drawTitle(Painter);
 
-
     Painter.translate(x_f , y_f + h_f);
     Painter.scale(1, -1);
 
@@ -1273,8 +1281,6 @@ void CoolChart::mouseMoveEvent(QMouseEvent *event)
 
         rmb_pr_p_f = pixPointToPhisycal(event->pos());
 
-
-
         int dx = -(rmb_pr_p_p.x() - event->pos().x());
         int ww = w_f / (gridLineCountX+1);
         start_px_line_x += dx;
@@ -1290,9 +1296,8 @@ void CoolChart::mouseMoveEvent(QMouseEvent *event)
         rmb_pr_p_p = event->pos();
 
         update();
-
-
     }
+
     if (lmb_pressed) {
         zoom_rect_draw_enable = true;
         zoom_rect = QRect(QPoint(zoom_rect.x(), zoom_rect.y()),
@@ -1363,8 +1368,8 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
                             y = series[i].getXY()->operator[](j).x() + series[i].getXY()->operator[](j).y();
                             if (x < xmin) xmin = x;
                             if (y > xmax) xmax = y;
-                            if (y < ymin) ymin = y;
-                            if (y > ymax) ymax = y;
+                            //if (y < ymin) ymin = y;
+                            //if (y > ymax) ymax = y;
                         }
                     }
                 }
@@ -1565,7 +1570,17 @@ void CoolChart::openColorDialog()
     clrDlg->setCurrentColor(series[selectedInd].getPen().color());
     edName->setText(series[selectedInd].getName());
     ed->setValue(series[selectedInd].getPen().width());
-    cb->setCurrentIndex(series[selectedInd].getType() == Line ? 0 : 1);
+
+    if (series[selectedInd].getType() == Line) {
+        cb->setCurrentIndex(0);
+    }
+    else if (series[selectedInd].getType() == Circles) {
+        cb->setCurrentIndex(1);
+    }
+    else {
+        cb->setCurrentIndex(2);
+    }
+
     clrDlg->show();
 }
 
@@ -1574,7 +1589,17 @@ void CoolChart::colorSelected(const QColor &color)
     QPen p = series[selectedInd].getPen();
     p.setColor(color);
     p.setWidth(ed->value());
-    series[selectedInd].setType(cb->currentIndex() == 0 ? Line : Circles);
+
+    if (cb->currentIndex() == 0) {
+        series[selectedInd].setType(Line);
+    }
+    else if (cb->currentIndex() == 1) {
+        series[selectedInd].setType(Circles);
+    }
+    else {
+        series[selectedInd].setType(Gantt);
+    }
+
     lw->item(selectedInd)->setText(edName->text());
     series[selectedInd].setName(edName->text());
     series[selectedInd].setPen(p);

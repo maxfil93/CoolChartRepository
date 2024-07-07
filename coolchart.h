@@ -28,21 +28,16 @@ private:
     SeriesType type;
     QList<QPointF> xy;
     QList<QPoint> xyPix;
-    QBrush brush;
     QPen pen;
     CoolChart* parent;
     static int cnt;
     int id;
     double max_x, min_x, max_y, min_y;
     bool visible;
-
     double avg_sum_y;
     double avg_n_y;
     double avg_y;
-
     QString name;
-
-
 
 public:
     double avg_vis_sum_y;
@@ -60,14 +55,12 @@ public:
     QList<QPointF>* getXY();
 
     void setType(SeriesType type);
-    void setBrush(QBrush brush);
     void setPen(QPen pen);
     void setVisible(bool v);
     void setXYPix(QList<QPoint> xyP){xyPix = xyP;}
     void setName(QString n) {name = n;}
 
     SeriesType getType();
-    QBrush getBrush();
     QPen getPen();
     bool getVisible();
     QList<QPoint>* getXYPix(){return &xyPix;}
@@ -142,6 +135,7 @@ private:
 
     bool doesPhisycalPointBelongToChart(QPointF p);
     bool doesPhisycalLineBelongToChart(QLineF l);
+    bool doesPhisycalRectBelongToChart(QRectF r);
     int calcPixDist(QLine l);
     QPoint  phisycalPointToPix(QPointF point);
     QPointF pixPointToPhisycal(QPoint point);
@@ -164,7 +158,6 @@ private:
     QListWidget* lw;
     QListWidgetItem* selectedItem;
     int selectedInd;
-
 
     QColorDialog* clrDlg;
     QLineEdit* edName;
@@ -261,10 +254,8 @@ protected:
       void mousePressEvent(QMouseEvent *event) override;
       void mouseReleaseEvent(QMouseEvent *event) override;
       void wheelEvent(QWheelEvent* event)override;
-
       void keyPressEvent(QKeyEvent* event) override;
       void keyReleaseEvent(QKeyEvent* event) override;
-
       QSize sizeHint()const override;
 
 private slots:
