@@ -1,6 +1,76 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QFile>
 #include <math.h>
+
+void MainWindow::fun(char* fn, unsigned int start_str, unsigned int num_str)
+{
+FILE* F = fopen(fn, "rt");
+if (F == NULL)
+    {
+    return;
+    }
+unsigned int cnt = 0;
+unsigned int first_time_mks = -1;
+
+while(!feof(F))
+    {
+    char rx[5] = {0};
+    unsigned int num = 0;
+    char sff[5] = {0};
+    char id[10] = {0};
+    unsigned int dlc = 0;
+    char hex[10] = {0};
+
+    fscanf(F, "%s %d %s %s %d %s", rx, &num, sff, id, &dlc, hex);
+
+    if (feof(F)) break;
+
+
+    for (int i = 0; i < dlc; i++)
+        {
+        char data_s[5] = {0};
+        fscanf(F, "%s", data_s);
+        }
+
+    char time1_s[20] = {0};
+    fscanf(F, "%s", time1_s);
+    unsigned int time1_int = atoi(time1_s);
+
+    if (first_time_mks == -1) {
+        first_time_mks = time1_int;
+    }
+
+    char date[20] = {0};
+    char time2[20] = {0};
+    char date3[20] = {0};
+    char date4[20] = {0};
+    fscanf(F, "%s %s %s %s", date, &time2, date3, date4);
+
+    if (num < start_str) continue;
+    if (cnt >= num_str) break;
+
+    QString id_qs(id);
+
+    bool ok = false;
+
+    unsigned short r_id  = id_qs.toInt(&ok, 16);
+    unsigned int r_mks = time1_int;
+    unsigned short r_dlc = dlc;
+
+    if (chart.getSeriesByName(id) == nullptr) {
+        Series s(&chart, id);
+        s.setType(Gantt);
+        chart.addSeries(s);
+    }
+
+    chart.getSeriesByName(id)->addXY((r_mks-first_time_mks)/1000000.0, (r_dlc * 119/8) / 1000000.0);
+
+    cnt++;
+    }
+fclose(F);
+}
+//---------------------------------------------------------------------------
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -26,8 +96,8 @@ MainWindow::MainWindow(QWidget *parent)
     chart.setTextFont(f2, Qt::white, FAxisYTitle);
 
     chart.setTitle("График1");
-    chart.setXTitle("Время, с");
-    chart.setYTitle("Амплитуда, В");
+    chart.setXTitle("Время, мкс");
+    chart.setYTitle("№");
 
     QPalette pal = palette();
     pal.setColor(QPalette::Base, Qt::black);
@@ -35,6 +105,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     chart.setPalette(pal);
 
+    chart.setShowBorderForGantt(true);
+     chart.setShowFreeTimeForGantt(true);
 
 //    for (int i = 0; i < 50; i++) {
 //        Series s(&chart, "Имя" + QString::number(i));
@@ -44,19 +116,21 @@ MainWindow::MainWindow(QWidget *parent)
 //            chart.getSeriesByName("Имя" + QString::number(i))->addXY(j*12+i, 10);
 //    }
 
-    Series s1(&chart, "Имя1");
-    s1.setType(Gantt);
-    chart.addSeries(s1);
+
+
+//    Series s1(&chart, "Имя1");
+//    s1.setType(Gantt);
+//    chart.addSeries(s1);
 
     /*Series s2(&chart, "Имя2");
     s2.setType(Gantt);
     chart.addSeries(s2);*/
 
 
-    for (int i = 0; i < 500000; i++) {
-        chart.getSeriesByName("Имя1")->addXY(i*100+300, 50);
-       // chart.getSeriesByName("Имя2")->addXY(i*70, 30);
-    }
+//    for (int i = 0; i < 500; i++) {
+//        chart.getSeriesByName("Имя1")->addXY(i*100+300, 50);
+//       // chart.getSeriesByName("Имя2")->addXY(i*70, 30);
+//    }
 
     /*Series s2(&chart, "Имя2");
     s2.setType(Gantt);
@@ -85,5 +159,12 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+
+void MainWindow::on_pushButton_clicked()
+{
+    chart.clear();
+    fun(ui->lineEdit->text().toLocal8Bit().data(), 0, /*105798*/1000);
 }
 

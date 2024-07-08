@@ -133,6 +133,8 @@ private:
     QString xTitle;
     QString yTitle;
 
+    std::vector<QRectF> v_gantt_rects;
+
     bool doesPhisycalPointBelongToChart(QPointF p);
     bool doesPhisycalLineBelongToChart(QLineF l);
     bool doesPhisycalRectBelongToChart(QRectF r);
@@ -175,6 +177,9 @@ private:
 
     int min_x_y_number;  //Минимальная координата X подписей по оси Y (Для того, чтобы узнать где рисовать заголовок оси Y)
 
+    bool showFreeTimeForGantt;  //Показывать свободное время для диаграммы гантта
+    bool showBorderGantt;       //Показывать границы прямоугольников на диаграмме ганта
+
 public:
     CoolChart(QWidget *ob = 0);
 
@@ -205,6 +210,8 @@ public:
     void setTitle(QString tit);
     void setXTitle(QString tit);
     void setYTitle(QString tit);
+    void setShowFreeTimeForGantt(bool v);
+    void setShowBorderForGantt(bool v);
 
     bool getAntialiased();
     QPen getOuterRectPen();
@@ -234,6 +241,8 @@ public:
     QString getTitle();
     QString getXTitle();
     QString getYTitle();
+    bool getShowFreeTimeForGantt();
+    bool getShowBorderForGantt();
 
     int addSeries(Series s);
     Series* getSeriesByID(int id);
@@ -247,6 +256,8 @@ public:
     int plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX);
 
     double QStringToNumber(QString s, bool* ok);
+
+
 
 protected:
       void paintEvent(QPaintEvent *event) override;

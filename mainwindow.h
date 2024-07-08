@@ -17,9 +17,14 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void on_pushButton_clicked();
+
 private:
     Ui::MainWindow *ui;
 
     CoolChart chart;
+
+    void fun(char* fn, unsigned int start_str, unsigned int num_str);
 };
 #endif // MAINWINDOW_H

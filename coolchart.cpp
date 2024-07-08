@@ -16,10 +16,10 @@
 
 int Series::cnt = 0;
 
-#define PredefColors_NUM 16
+#define PredefColors_NUM 14
 QColor PredefColors[PredefColors_NUM] = {
-    Qt::red,
-    Qt::green,
+    //Qt::red,
+    //Qt::green,
     Qt::blue,
     Qt::cyan,
     Qt::magenta,
@@ -368,6 +368,9 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     start_px_line_y = 0;
 
     min_x_y_number = 0x7FFFFFFF;
+
+    showFreeTimeForGantt = false;
+    showBorderGantt = false;
 }
 
 
@@ -535,6 +538,15 @@ void CoolChart::setYTitle(QString tit)
     yTitle = tit;
 }
 
+void CoolChart::setShowFreeTimeForGantt(bool v)
+{
+    showFreeTimeForGantt = v;
+}
+
+void CoolChart::setShowBorderForGantt(bool v)
+{
+    showBorderGantt = v;
+}
 
 //*********************************************************************
 //------------------------public-Getters-------------------------------
@@ -660,6 +672,31 @@ QList<Series> *CoolChart::getSeries()
     return &series;
 }
 
+QString CoolChart::getTitle()
+{
+    return title;
+}
+
+QString CoolChart::getXTitle()
+{
+    return xTitle;
+}
+
+QString CoolChart::getYTitle()
+{
+    return yTitle;
+}
+
+bool CoolChart::getShowFreeTimeForGantt()
+{
+    return showFreeTimeForGantt;
+}
+
+bool CoolChart::getShowBorderForGantt()
+{
+    return showBorderGantt;
+}
+
 //*********************************************************************
 //------------------------public-Functions-----------------------------
 //*********************************************************************
@@ -709,6 +746,8 @@ void CoolChart::clear()
     if (autoYLimit) {
         yMin = 0, yMax = 10;
     }
+
+    lw->clear();
     update();
 }
 
@@ -904,6 +943,35 @@ void CoolChart::drawChartGridAndNumbers(QPainter& p)
 
 void CoolChart::drawAllSeries(QPainter& p)
 {
+    if (showFreeTimeForGantt && v_gantt_rects.size() > 0) {
+        for (unsigned int i = 0; i < v_gantt_rects.size()-1; i++) {
+            QRectF r1(v_gantt_rects[i]);
+            QRectF r2(v_gantt_rects[i+1]);
+
+            QPointF p1f = r1.topRight();
+            QPointF p2f = r2.topLeft();
+
+            QPoint p1 = phisycalPointToPix(p1f);
+            QPoint p2 = phisycalPointToPix(p2f);
+
+            QRect r(QPoint(p1.x(), 9999), QPoint(p2.x(), 0));
+
+            if (/*r.left() > 0 && r.right() < this->rect().right()*/1) {
+                if (r1.right() < r2.left()) {
+                    QColor cl = Qt::green;
+                    cl.setAlphaF(0.4);
+                    p.fillRect(r, cl);
+                }
+                else if (r1.right() > r2.left()){
+                    QColor cl = Qt::red;
+                    cl.setAlphaF(0.99);
+                    p.fillRect(r, cl);
+                }
+            }
+        }
+    }
+
+    v_gantt_rects.clear();
     for (int i = 0; i < series.size(); i++) {
         drawSeries(i, p);
     }
@@ -1036,6 +1104,22 @@ void CoolChart::drawCircleSeries(int i, QPainter& p)
     }
 }
 
+bool operator<(const QRectF &x, const QRectF &y)
+{
+    return x.left() < y.left();
+}
+
+template< typename T >
+typename std::vector<T>::iterator
+   insert_sorted( std::vector<T> & vec, T const& item )
+{
+    return vec.insert
+        (
+            std::upper_bound( vec.begin(), vec.end(), item ),
+            item
+        );
+}
+
 void CoolChart::drawGanttSeries(int i, QPainter& p)
 {
     unsigned int n_gantt_series = 0;
@@ -1055,10 +1139,22 @@ void CoolChart::drawGanttSeries(int i, QPainter& p)
     for (int j = 0; j < series[i].getXY()->size(); j++) {
         ph_p = series[i].getXY()->operator[](j);
         QRectF ph_r(ph_p.x(), this_gantt_series_num + 0.5, ph_p.y(), 1);
+        if (showFreeTimeForGantt) insert_sorted(v_gantt_rects, ph_r);
         bool btc = doesPhisycalRectBelongToChart(ph_r);
         if (btc) {
             QRect pix_r(phisycalPointToPix(ph_r.topLeft()), phisycalPointToPix(ph_r.bottomRight()));
-            p.fillRect(pix_r, series[i].getPen().color());
+            if (showBorderGantt) {
+                pix_r.setLeft(pix_r.left()+1);
+                pix_r.setRight(pix_r.right()-1);
+                pix_r.setTop(pix_r.top()+1);
+                pix_r.setBottom(pix_r.bottom()-1);
+                p.setPen(QPen(Qt::white, 1));
+                p.setBrush(QBrush(series[i].getPen().color()));
+                p.drawRect(pix_r);
+            }
+            else {
+                p.fillRect(pix_r, series[i].getPen().color());
+            }
         }
         else if (btc_pr) {
             return;
@@ -1496,7 +1592,7 @@ void CoolChart::wheelEvent(QWheelEvent* event)
     double scale_factor = 0;
 
     if (!smooth_scale) {
-        scale_factor = numDegrees > 0 ? 0.9 : 1.1;
+        scale_factor = numDegrees > 0 ? 0.7 : 1.3;
     }
     else {
         scale_factor = numDegrees > 0 ? 0.99 : 1.01;
@@ -1506,18 +1602,16 @@ void CoolChart::wheelEvent(QWheelEvent* event)
         this->xMin = ph_p.x() - (ww / 2. * scale_factor);
         this->xMax = ph_p.x() + (ww / 2. * scale_factor);
     }
-    else if (this->zoom_by_wheel_y and not this->zoom_by_wheel_x) {
+    else if (this->zoom_by_wheel_y && !this->zoom_by_wheel_x) {
         this->yMin = ph_p.y() - (hh / 2. * scale_factor);
         this->yMax = ph_p.y() + (hh / 2. * scale_factor);
     }
-    else if (!this->zoom_by_wheel_y and !this->zoom_by_wheel_x) {
+    else if (!this->zoom_by_wheel_y && !this->zoom_by_wheel_x) {
         this->xMin = ph_p.x() - (ww / 2. * scale_factor);
         this->xMax = ph_p.x() + (ww / 2. * scale_factor);
         this->yMin = ph_p.y() - (hh / 2. * scale_factor);
         this->yMax = ph_p.y() + (hh / 2. * scale_factor);
     }
-
-
 
     int p_c_x = this->x_f + (this->w_f / 2.);
     int p_c_y = this->y_f + (this->h_f / 2.);
