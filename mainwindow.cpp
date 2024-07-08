@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include <QFile>
 #include <math.h>
+#include <QRandomGenerator>
+#include <iostream>
 
 void MainWindow::fun(char* fn, unsigned int start_str, unsigned int num_str)
 {
@@ -104,9 +106,9 @@ MainWindow::MainWindow(QWidget *parent)
     this->setPalette(pal);
 
     chart.setPalette(pal);
-
     chart.setShowBorderForGantt(true);
-     chart.setShowFreeTimeForGantt(true);
+    //chart.setShowFreeTimeForGantt(true);
+    chart.setShowCaptionForGantt(true);
 
 //    for (int i = 0; i < 50; i++) {
 //        Series s(&chart, "Имя" + QString::number(i));
@@ -165,6 +167,27 @@ MainWindow::~MainWindow()
 void MainWindow::on_pushButton_clicked()
 {
     chart.clear();
-    fun(ui->lineEdit->text().toLocal8Bit().data(), 0, /*105798*/1000);
+    //fun(ui->lineEdit->text().toLocal8Bit().data(), 0, /*105798*/1000);
+
+    for (int i = 0 ; i < 20; i++) {
+        Series s(&chart, "Имя" + QString::number(i));
+
+        QRandomGenerator::global()->generate();
+
+        s.setType(Gantt);
+
+        for (int j = 0 ; j < 100; j++) {
+            double xmin = (j*10-2);
+            double xmax = 4;
+            double x = xmin + QRandomGenerator::global()->bounded(xmax);
+
+            double wmax = 10;
+            double w = QRandomGenerator::global()->bounded(wmax);
+            s.addXY(x, w);
+            //std::cout << "("<< x << ", " << w << ")" <<std::endl;
+        }
+
+        chart.addSeries(s);
+    }
 }
 

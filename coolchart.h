@@ -156,6 +156,7 @@ private:
     void DrawInf(QPainter& p);
     void drawTitle(QPainter& painter);
     void drawAxisTitle(QPainter& painter);
+    QColor getInvColor(QColor cl);
 
     QListWidget* lw;
     QListWidgetItem* selectedItem;
@@ -179,6 +180,7 @@ private:
 
     bool showFreeTimeForGantt;  //Показывать свободное время для диаграммы гантта
     bool showBorderGantt;       //Показывать границы прямоугольников на диаграмме ганта
+    bool showCaptionGantt;      //Показывать подпись на прямоугольниках на диаграмме ганта
 
 public:
     CoolChart(QWidget *ob = 0);
@@ -212,6 +214,7 @@ public:
     void setYTitle(QString tit);
     void setShowFreeTimeForGantt(bool v);
     void setShowBorderForGantt(bool v);
+    void setShowCaptionForGantt(bool v);
 
     bool getAntialiased();
     QPen getOuterRectPen();
@@ -243,6 +246,7 @@ public:
     QString getYTitle();
     bool getShowFreeTimeForGantt();
     bool getShowBorderForGantt();
+    bool getShowCaptionForGantt();
 
     int addSeries(Series s);
     Series* getSeriesByID(int id);

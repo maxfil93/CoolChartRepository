@@ -548,6 +548,11 @@ void CoolChart::setShowBorderForGantt(bool v)
     showBorderGantt = v;
 }
 
+void CoolChart::setShowCaptionForGantt(bool v)
+{
+    showCaptionGantt = v;
+}
+
 //*********************************************************************
 //------------------------public-Getters-------------------------------
 //*********************************************************************
@@ -695,6 +700,11 @@ bool CoolChart::getShowFreeTimeForGantt()
 bool CoolChart::getShowBorderForGantt()
 {
     return showBorderGantt;
+}
+
+bool CoolChart::getShowCaptionForGantt()
+{
+    return showCaptionGantt;
 }
 
 //*********************************************************************
@@ -1129,13 +1139,15 @@ void CoolChart::drawGanttSeries(int i, QPainter& p)
             n_gantt_series++;
             if (&series[i] == &series[j]) {
                 this_gantt_series_num = n_gantt_series-1;
+                break;
             }
         }
     }
 
     QPointF ph_p;
     bool btc_pr = false;
-
+    QFont font;
+    QPen pen;
     for (int j = 0; j < series[i].getXY()->size(); j++) {
         ph_p = series[i].getXY()->operator[](j);
         QRectF ph_r(ph_p.x(), this_gantt_series_num + 0.5, ph_p.y(), 1);
@@ -1154,6 +1166,22 @@ void CoolChart::drawGanttSeries(int i, QPainter& p)
             }
             else {
                 p.fillRect(pix_r, series[i].getPen().color());
+            }
+
+            if (showCaptionGantt) {
+                QRect text_rect(pix_r.left() + 2, -pix_r.top() - pix_r.height() + 2, pix_r.width(), pix_r.height());
+
+                font = p.font();
+                font.setPixelSize(12);
+                p.setFont(font);
+
+                pen = p.pen();
+                pen.setColor(getInvColor(series[i].getPen().color()));
+                p.setPen(pen);
+
+                p.scale(1, -1);
+                p.drawText(text_rect, series[i].getName() + ": (x=" + QString::number(ph_p.x()) + ", t=" + QString::number(ph_p.y()) + ")");
+                p.scale(1, -1);
             }
         }
         else if (btc_pr) {
@@ -1229,6 +1257,15 @@ void CoolChart::drawAxisTitle(QPainter& painter)
     painter.rotate(90);
     painter.restore();
     painter.scale(1, -1);
+}
+
+QColor CoolChart::getInvColor(QColor cl)
+{
+    int r, g, b;
+    cl.getRgb(&r, &g, &b);
+    int intclr = (r<<16) | (g <<8) | b;
+    intclr = 0xFFFFFF - intclr;
+    return QColor((unsigned char)(intclr >> 16), (unsigned char)(intclr >> 8), (unsigned char)(intclr));
 }
 
 //*********************************************************************
@@ -1319,6 +1356,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
         Painter.drawLine(lx);
         Painter.drawLine(ly);
+
         Painter.scale(1,-1);
         QPoint pnt(crossLineX, crossLineY);
         QPointF pntf = pixPointToPhisycal(pnt);
@@ -1332,6 +1370,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
         p.setStyle(Qt::SolidLine);
 
         for (int i = 0; i < series.size(); i++) {
+            if (series[i].getType() == Gantt) continue;
             QPointF nr = findNearestPointByX(series[i], pntf.x());
             QPoint pp = phisycalPointToPix(nr);
             p.setColor(series[i].getPen().color());
@@ -1345,13 +1384,8 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
             int fontheight = fm.height();
             int fontwidth = fm.horizontalAdvance(s);
 
-            int r, g, b;
-            p.color().getRgb(&r, &g, &b);
-
-            int intclr = (r<<16) | (g <<8) | b;
-
             Painter.scale(1,-1);
-            Painter.fillRect(pp.x()+15, -pp.y()+20-(fontheight-(fontheight/3)), fontwidth, fontheight, 0xFFFFFF - intclr);
+            Painter.fillRect(pp.x()+15, -pp.y()+20-(fontheight-(fontheight/3)), fontwidth, fontheight, getInvColor(p.color()));
             Painter.drawText(pp.x()+15, -pp.y()+20, s);
             Painter.scale(1,-1);
         }
@@ -1360,7 +1394,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
     if (draw_inf_enabled)
         DrawInf(Painter);
 
-    std::cout << "The slow operation took " << timer.elapsed() << " milliseconds" << std::endl;
+    //std::cout << "The slow operation took " << timer.elapsed() << " milliseconds" << std::endl;
 }
 
 void CoolChart::mouseMoveEvent(QMouseEvent *event)
@@ -1460,12 +1494,16 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
                             if (y > ymax) ymax = y;
                         }
                         else {
+                            int gantt_num = 0;
+                            for (int i = 0; i < series.size(); i++) {
+                                gantt_num += (series[i].getType() == Gantt);
+                            }
                             x = series[i].getXY()->operator[](j).x();
                             y = series[i].getXY()->operator[](j).x() + series[i].getXY()->operator[](j).y();
                             if (x < xmin) xmin = x;
                             if (y > xmax) xmax = y;
-                            //if (y < ymin) ymin = y;
-                            //if (y > ymax) ymax = y;
+                            ymin = 0;
+                            ymax = gantt_num + 1.0;
                         }
                     }
                 }
