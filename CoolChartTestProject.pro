@@ -1,4 +1,7 @@
-QT       += core gui openglwidgets
+QT       += core gui
+
+equals(QT_MAJOR_VERSION, 6): QT += openglwidgets
+greaterThan(QT_MAJOR_VERSION, 6): QT += openglwidgets
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 

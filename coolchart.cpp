@@ -36,6 +36,9 @@ QColor PredefColors[PredefColors_NUM] = {
     Qt::white
 };
 
+void platform_getQWheelEventPos(QWheelEvent* event, int& x, int& y,   int x_f, int y_f, int h_f);
+QStringList platform_splitQString(QString s);
+
 unsigned int Series::defineThisGanttSeriesNum()
 {
     unsigned int n = parent->getSeries()->size();
@@ -1553,8 +1556,8 @@ double Ua, Ub, numerator_a, numerator_b, denominator;
 void CoolChart::wheelEvent(QWheelEvent* event)
 {
     int numDegrees = event->angleDelta().y();
-    int x = event->position().x() - this->x_f;
-    int y = this->h_f - (event->position().y() - this->y_f);
+    int x,y;
+    platform_getQWheelEventPos(event, x, y, this->x_f, this->y_f, this->h_f);
     this->setAutoXLimits(false);
     this->setAutoYLimits(false);
     QPointF ph_p = this->pixPointToPhisycal(QPoint(x, y));
@@ -1690,7 +1693,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     srand(time(0));
     if (firstRowIsTitle) {
         QString title = ts.readLine();
-        QStringList splitTitle = title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList splitTitle = platform_splitQString(title); // = title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         int start = 0;
         if (firstColumnIsX) start = 1;
         for (int i = start; i < splitTitle.length(); ++i) {
@@ -1709,7 +1712,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     }
     else {
         QString title = ts.readLine();
-        QStringList splitTitle = title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList splitTitle = platform_splitQString(title); // title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         int start = 0;
         if (firstColumnIsX) start = 1;
         for (int i = start; i < splitTitle.length(); ++i) {
@@ -1731,7 +1734,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     unsigned int cnt = 0;
     while(!ts.atEnd()) {
         QString row = ts.readLine();
-        QStringList splitRow = row.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList splitRow = platform_splitQString(row);// row.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         int start = 0, len = s_list.length();
         if (firstColumnIsX) {start = 1; ++len;}
         for (int i = start; i < splitRow.length() && i < len; ++i) {
@@ -1782,4 +1785,29 @@ double CoolChart::QStringToNumber(QString s, bool* ok)
         val = s.toInt(ok, 10);
         return val;
     }
+}
+
+//*********************************************************************
+//-------------------------------Platform compat-----------------------
+//*********************************************************************
+void platform_getQWheelEventPos(QWheelEvent* event, int& x, int& y,   int x_f, int y_f, int h_f)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    x = event->position().x() - x_f;
+    y = h_f - (event->position().y() - y_f);
+#elif QT_VERSION >= QT_VERSION_CHECK(5, 10, 1)
+    x = event->x() - x_f;
+    y = h_f - (event->y() - y_f);
+#endif
+}
+
+QStringList platform_splitQString(QString s)
+{
+    QStringList sl;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    sl = s.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+#elif QT_VERSION >= QT_VERSION_CHECK(5, 10, 1)
+    sl = s.split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
+#endif
+    return sl;
 }
