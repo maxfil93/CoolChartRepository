@@ -25,6 +25,10 @@ private:
 
     CoolChart chart;
 
+    void LineSeriesTest();
+    void GanttSeriesTest();
+    void GenerateRandom(unsigned int ser_num, unsigned int points_num);
+
     void fun(char* fn, unsigned int start_str, unsigned int num_str);
 };
 #endif // MAINWINDOW_H

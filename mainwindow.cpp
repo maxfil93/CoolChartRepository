@@ -82,7 +82,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->horizontalLayout->addWidget(&chart);
     chart.showLegend(ui->horizontalLayout, true);
-    chart.getLegend()->setFont(QFont("TimesNewRoman", 14));
+    chart.getLegend()->setFont(QFont("TimesNewRoman", 12));
     chart.setAntialiased(true);
 
     QFont f = chart.getTextFont(FTitle);
@@ -106,54 +106,12 @@ MainWindow::MainWindow(QWidget *parent)
     this->setPalette(pal);
 
     chart.setPalette(pal);
-    chart.setShowBorderForGantt(true);
+
+    chart.setAutoXLimits(true);
+    chart.setAutoYLimits(true);
+   // chart.setShowBorderForGantt(true);
     //chart.setShowFreeTimeForGantt(true);
-    chart.setShowCaptionForGantt(true);
-
-//    for (int i = 0; i < 50; i++) {
-//        Series s(&chart, "Имя" + QString::number(i));
-//        s.setType(Gantt);
-//        chart.addSeries(s);
-//        for (int j = 0; j < 50; j++)
-//            chart.getSeriesByName("Имя" + QString::number(i))->addXY(j*12+i, 10);
-//    }
-
-
-
-//    Series s1(&chart, "Имя1");
-//    s1.setType(Gantt);
-//    chart.addSeries(s1);
-
-    /*Series s2(&chart, "Имя2");
-    s2.setType(Gantt);
-    chart.addSeries(s2);*/
-
-
-//    for (int i = 0; i < 500; i++) {
-//        chart.getSeriesByName("Имя1")->addXY(i*100+300, 50);
-//       // chart.getSeriesByName("Имя2")->addXY(i*70, 30);
-//    }
-
-    /*Series s2(&chart, "Имя2");
-    s2.setType(Gantt);
-    chart.addSeries(s2);
-    chart.getSeriesByName("Имя2")->addXY(40, 5);
-    chart.getSeriesByName("Имя2")->addXY(50, 50);*/
-
-    /*Series s3(&chart, "Имя3");
-    s3.setType(Line);
-    chart.addSeries(s3);
-    chart.getSeriesByName("Имя3")->addXY(0, 0);
-    chart.getSeriesByName("Имя3")->addXY(50, 50);*/
-
-    /*chart.getSeriesByID(id1)->addXY(0, 0);
-    chart.getSeriesByID(id1)->addXY(1, 10);
-    chart.getSeriesByID(id1)->addXY(2, 0);
-    chart.getSeriesByID(id1)->addXY(3, 10);
-    chart.getSeriesByID(id1)->addXY(4, 0);
-    chart.getSeriesByID(id1)->addXY(5, 10);
-    chart.getSeriesByID(id1)->addXY(6, 15);
-    chart.getSeriesByID(id1)->addXY(7, 0);*/
+    //chart.setShowCaptionForGantt(true);
 
     //chart.plotByFile("C:\\Users\\Max\\Desktop\\new 12.txt", true, true);
 }
@@ -166,17 +124,72 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButton_clicked()
 {
-    chart.clear();
-    //fun(ui->lineEdit->text().toLocal8Bit().data(), 0, /*105798*/1000);
+//    LineSeriesTest();
+//    GanttSeriesTest();
+//    GenerateRandom(10, 100);
+    fun(ui->lineEdit->text().toLocal8Bit().data(), 0, 999999);
+}
 
-    for (int i = 0 ; i < 20; i++) {
-        Series s(&chart, "Имя" + QString::number(i));
+void MainWindow::LineSeriesTest()
+{
+    static unsigned int cnt = 0;
+    static unsigned int addded_ser = 0;
+    if (cnt % 10 == 0) {
+        Series s(&chart, "Name" + QString::number(addded_ser++));
+        s.setType(Line);
+        chart.addSeries(s);
+    }
+    else {
+        int scx = 1;
+        if (addded_ser % 2 == 0) scx = -1;
+        int scy = 1;
+        if (addded_ser % 3 == 0) scy = -1;
+        chart.getSeriesByID(addded_ser - 1)->addXY(
+                    (double)scx*((double)addded_ser * (double)addded_ser + (double)cnt),
+                    (double)scy*((double)addded_ser + (double)cnt)
+                                                  );
+    }
+
+    cnt++;
+}
+
+void MainWindow::GanttSeriesTest()
+{
+    static unsigned int cnt = 0;
+    static unsigned int addded_ser = 0;
+    if (cnt % 10 == 0) {
+        Series s(&chart, "Name" + QString::number(addded_ser++));
+        s.setType(Gantt);
+        chart.addSeries(s);
+    }
+    else {
+        int scx = 1;
+        if (addded_ser % 2 == 0) scx = -1;
+        int scy = 1;
+        if (addded_ser % 3 == 0) scy = -1;
+        chart.getSeriesByID(addded_ser - 1)->addXY(
+                    (double)scx*((double)addded_ser * (double)addded_ser + (double)cnt),
+                    (double)scy*((double)addded_ser + (double)cnt)
+                                                  );
+    }
+
+    cnt++;
+}
+
+void MainWindow::GenerateRandom(unsigned int ser_num, unsigned int points_num)
+{
+    chart.clear();
+    for (int i = 0 ; i < ser_num; i++) {
+        Series s(&chart, "Name" + QString::number(i));
 
         QRandomGenerator::global()->generate();
 
         s.setType(Gantt);
+        QPen p = s.getPen();
+        p.setWidth(3);
+        s.setPen(p);
 
-        for (int j = 0 ; j < 100; j++) {
+        for (int j = 0 ; j < points_num; j++) {
             double xmin = (j*10-2);
             double xmax = 4;
             double x = xmin + QRandomGenerator::global()->bounded(xmax);
@@ -184,10 +197,7 @@ void MainWindow::on_pushButton_clicked()
             double wmax = 10;
             double w = QRandomGenerator::global()->bounded(wmax);
             s.addXY(x, w);
-            //std::cout << "("<< x << ", " << w << ")" <<std::endl;
         }
-
         chart.addSeries(s);
     }
 }
-

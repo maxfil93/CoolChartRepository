@@ -68,6 +68,8 @@ public:
 
     int getID(){return id;}
     double getAvgY() {return avg_y;}
+
+    unsigned int defineThisGanttSeriesNum();
 };
 
 class CoolChart : public QOpenGLWidget
