@@ -277,6 +277,7 @@ protected:
 
 private slots:
       void showContextMenu(const QPoint &pos);
+      void legendItemDblClick(QListWidgetItem *item);
       void deleteSeies();
       void openColorDialog();
       void colorSelected(const QColor &color);

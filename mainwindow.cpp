@@ -126,8 +126,8 @@ void MainWindow::on_pushButton_clicked()
 {
 //    LineSeriesTest();
 //    GanttSeriesTest();
-//    GenerateRandom(10, 100);
-    fun(ui->lineEdit->text().toLocal8Bit().data(), 0, 999999);
+    GenerateRandom(10, 100);
+//    fun(ui->lineEdit->text().toLocal8Bit().data(), 0, 999999);
 }
 
 void MainWindow::LineSeriesTest()

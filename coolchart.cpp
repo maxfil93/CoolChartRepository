@@ -36,8 +36,46 @@ QColor PredefColors[PredefColors_NUM] = {
     Qt::white
 };
 
-void platform_getQWheelEventPos(QWheelEvent* event, int& x, int& y,   int x_f, int y_f, int h_f);
-QStringList platform_splitQString(QString s);
+
+//*********************************************************************
+//---------------MACRO FOR QT VERSIONS COMPATABILITY-------------------
+//*********************************************************************
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#define COMPAT_WHEELEVENTPOS(event, x, y, x_f, y_f, h_f) ({\
+    x = event->position().x() - x_f;\
+    y = h_f - (event->position().y() - y_f);\
+})
+
+#define COMPAT_SPLITSTRING(s) ({\
+    s.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);\
+})
+
+#define COMPAT_FONTSTRINGWIDTHHEIGHT(font, string, w, h) ({\
+    QFontMetrics fm(font);\
+    w = fm.horizontalAdvance(string);\
+    h = fm.height();\
+})
+
+#elif QT_VERSION >= QT_VERSION_CHECK(5, 10, 1)
+#define COMPAT_WHEELEVENTPOS(event, x, y, x_f, y_f, h_f) ({\
+    x = event->x() - x_f;\
+    y = h_f - (event->y() - y_f);\
+})
+
+#define COMPAT_SPLITSTRING(s) ({\
+    s.split(QRegularExpression("\\s+"), QString::SkipEmptyParts)\
+})
+
+#define COMPAT_FONTSTRINGWIDTHHEIGHT(font, string, w, h) ({\
+    QFontMetrics fm(font);\
+    w = fm.width(string);\
+    h = fm.height();\
+})
+
+#endif
+
+
 
 unsigned int Series::defineThisGanttSeriesNum()
 {
@@ -194,6 +232,13 @@ QPen Series::getPen()
 void Series::setVisible(bool v)
 {
     visible = v;
+
+    for (int i = 0; i < parent->getSeries()->size(); i++) {
+        if (&(parent->getSeries()->operator[](i)) == this) {
+            parent->getLegend()->item(i)->setText(!visible ? (name + " (x)") : (name));
+            break;
+        }
+    }
 }
 
 bool Series::getVisible()
@@ -274,6 +319,7 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     lw->setMaximumWidth(300);
     lw->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(lw, &QListWidget::customContextMenuRequested, this, &CoolChart::showContextMenu);
+    connect(lw, &QListWidget::itemDoubleClicked, this, &CoolChart::legendItemDblClick);
 
     this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -932,7 +978,9 @@ void CoolChart::drawAllSeries(QPainter& p)
 
     v_gantt_rects.clear();
     for (int i = 0; i < series.size(); i++) {
-        drawSeries(i, p);
+        if (series[i].getVisible()) {
+            drawSeries(i, p);
+        }
     }
 }
 
@@ -1136,9 +1184,8 @@ void CoolChart::drawXNumber(QPainter& painter, int x)
     painter.setPen(textColor[FAxisXNumbers]);
     QPointF xy = pixPointToPhisycal(QPoint(x, 0));
     QString s = QString::number( xy.x(), textX_fmt, textX_prec );
-    QFontMetrics fm(textFont[FAxisXNumbers]);
-    int fontheight = fm.height();
-    int fontwidth = fm.horizontalAdvance(s);
+    int fontheight, fontwidth;
+    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXNumbers], s, fontwidth, fontheight);
     QPoint p_txt(x - fontwidth / 2, 0 - outerRectPen.width() + fontheight + 4);
     painter.scale(1, -1);
     painter.drawText(p_txt, s);
@@ -1152,9 +1199,8 @@ void CoolChart::drawYNumber(QPainter& painter, int y)
     painter.setPen(textColor[FAxisYNumbers]);
     QPointF xy = pixPointToPhisycal(QPoint(0, y));
     QString s = QString::number( xy.y(), textY_fmt, textY_prec );
-    QFontMetrics fm(textFont[FAxisYNumbers]);
-    int fontheight = fm.height();
-    int fontwidth = fm.horizontalAdvance(s);
+    int fontheight, fontwidth;
+    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisYNumbers], s, fontwidth, fontheight);
     QPoint p_txt( -(fontwidth + outerRectPen.width() + 4), -(y - fontheight/2 + 3));
     if (p_txt.x() < min_x_y_number) min_x_y_number = p_txt.x();
     painter.scale(1, -1);
@@ -1174,18 +1220,24 @@ void CoolChart::drawAxisTitle(QPainter& painter)
 {
     painter.setFont(textFont[FAxisXTitle]);
     painter.setPen(textColor[FAxisXTitle]);
-    QFontMetrics fm(textFont[FAxisXTitle]);
-    QFontMetrics fm2(textFont[FAxisXNumbers]);
-    QRect rr(w_f / 2 - fm.horizontalAdvance(xTitle) / 2, fm2.height() + outerRectPen.width() + 4, fm.horizontalAdvance(xTitle), fm.height());
+
+    int axis_title_w, axis_title_h, axis_num_w, axis_num_h;
+    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXTitle],   xTitle, axis_title_w, axis_title_h);
+    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXNumbers], xTitle, axis_num_w, axis_num_h);
+
+    QRect rr(w_f / 2 - axis_title_w / 2, axis_num_h + outerRectPen.width() + 4, axis_title_w, axis_title_h);
     painter.scale(1, -1);
     painter.drawText(rr, Qt::AlignHCenter | Qt::AlignVCenter, xTitle);
     painter.scale(1, -1);
 
+    axis_num_h = axis_num_w;  // for warning (axis_num_w not used)
 
     painter.setFont(textFont[FAxisYTitle]);
     painter.setPen(textColor[FAxisYTitle]);
-    QFontMetrics fm1(textFont[FAxisYTitle]);
-    QRect rr1(min_x_y_number - fm1.horizontalAdvance(yTitle) / 2 - 5, -((h_f / 2) + fm1.height()/2), fm1.horizontalAdvance(yTitle), fm1.height());
+
+    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisYTitle], yTitle, axis_title_w, axis_title_h);
+
+    QRect rr1(min_x_y_number - axis_title_w / 2 - 5, -((h_f / 2) + axis_title_h/2), axis_title_w, axis_title_h);
     painter.scale(1, -1);
     painter.save();
     painter.translate(rr1.center());
@@ -1318,9 +1370,8 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
             QString s = "(" + QString::number(nr.x()) + "; " + QString::number(nr.y()) + ")";
 
-            QFontMetrics fm(textFont[FAxisXNumbers]);
-            int fontheight = fm.height();
-            int fontwidth = fm.horizontalAdvance(s);
+            int fontheight, fontwidth;
+            COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXNumbers], s, fontwidth, fontheight);
 
             Painter.scale(1,-1);
             Painter.fillRect(pp.x()+15, -pp.y()+20-(fontheight-(fontheight/3)), fontwidth, fontheight, getInvColor(p.color()));
@@ -1557,7 +1608,7 @@ void CoolChart::wheelEvent(QWheelEvent* event)
 {
     int numDegrees = event->angleDelta().y();
     int x,y;
-    platform_getQWheelEventPos(event, x, y, this->x_f, this->y_f, this->h_f);
+    COMPAT_WHEELEVENTPOS(event, x, y, this->x_f, this->y_f, this->h_f);
     this->setAutoXLimits(false);
     this->setAutoYLimits(false);
     QPointF ph_p = this->pixPointToPhisycal(QPoint(x, y));
@@ -1630,6 +1681,19 @@ void CoolChart::showContextMenu(const QPoint &pos)
     myMenu.exec(globalPos);
 }
 
+void CoolChart::legendItemDblClick(QListWidgetItem *item)
+{
+    selectedItem = item;
+    for (int i = 0; i < lw->count(); i++) {
+        if (lw->item(i) == selectedItem) {
+            selectedInd = i;
+            break;
+        }
+    }
+    series[selectedInd].setVisible(!series[selectedInd].getVisible());
+    update();
+}
+
 void CoolChart::deleteSeies()
 {
     deleteSeriesById(series[selectedInd].getID());
@@ -1693,7 +1757,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     srand(time(0));
     if (firstRowIsTitle) {
         QString title = ts.readLine();
-        QStringList splitTitle = platform_splitQString(title); // = title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList splitTitle = COMPAT_SPLITSTRING(title);
         int start = 0;
         if (firstColumnIsX) start = 1;
         for (int i = start; i < splitTitle.length(); ++i) {
@@ -1712,7 +1776,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     }
     else {
         QString title = ts.readLine();
-        QStringList splitTitle = platform_splitQString(title); // title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList splitTitle = COMPAT_SPLITSTRING(title); // title.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         int start = 0;
         if (firstColumnIsX) start = 1;
         for (int i = start; i < splitTitle.length(); ++i) {
@@ -1734,7 +1798,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     unsigned int cnt = 0;
     while(!ts.atEnd()) {
         QString row = ts.readLine();
-        QStringList splitRow = platform_splitQString(row);// row.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList splitRow = COMPAT_SPLITSTRING(row);// row.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         int start = 0, len = s_list.length();
         if (firstColumnIsX) {start = 1; ++len;}
         for (int i = start; i < splitRow.length() && i < len; ++i) {
@@ -1785,29 +1849,4 @@ double CoolChart::QStringToNumber(QString s, bool* ok)
         val = s.toInt(ok, 10);
         return val;
     }
-}
-
-//*********************************************************************
-//-------------------------------Platform compat-----------------------
-//*********************************************************************
-void platform_getQWheelEventPos(QWheelEvent* event, int& x, int& y,   int x_f, int y_f, int h_f)
-{
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    x = event->position().x() - x_f;
-    y = h_f - (event->position().y() - y_f);
-#elif QT_VERSION >= QT_VERSION_CHECK(5, 10, 1)
-    x = event->x() - x_f;
-    y = h_f - (event->y() - y_f);
-#endif
-}
-
-QStringList platform_splitQString(QString s)
-{
-    QStringList sl;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    sl = s.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-#elif QT_VERSION >= QT_VERSION_CHECK(5, 10, 1)
-    sl = s.split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
-#endif
-    return sl;
 }
