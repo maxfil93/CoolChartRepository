@@ -159,8 +159,8 @@ void Series::addXY(double x, double y)
             max_y = gn + 2;
             min_y = gn;
         }
-        if (min_x == max_x) max_x += 1;
-        if (min_y == max_y) max_y += 1;
+        //if (min_x == max_x) max_x += 0.001;
+        //if (min_y == max_y) max_y += 0.001;
     }
 
     if (type != Gantt) {

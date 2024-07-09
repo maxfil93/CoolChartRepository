@@ -5,7 +5,7 @@
 #include <QRandomGenerator>
 #include <iostream>
 
-void MainWindow::fun(char* fn, unsigned int start_str, unsigned int num_str)
+void MainWindow::fun(int chart_num, char* fn, unsigned int start_str, unsigned int num_str)
 {
 FILE* F = fopen(fn, "rt");
 if (F == NULL)
@@ -60,13 +60,13 @@ while(!feof(F))
     unsigned int r_mks = time1_int;
     unsigned short r_dlc = dlc;
 
-    if (chart.getSeriesByName(id) == nullptr) {
-        Series s(&chart, id);
+    if (chart[chart_num].getSeriesByName(id) == nullptr) {
+        Series s(&chart[chart_num], id);
         s.setType(Gantt);
-        chart.addSeries(s);
+        chart[chart_num].addSeries(s);
     }
 
-    chart.getSeriesByName(id)->addXY((r_mks-first_time_mks)/1000000.0, (r_dlc * 119/8) / 1000000.0);
+    chart[chart_num].getSeriesByName(id)->addXY((r_mks-first_time_mks)/1000000.0, (r_dlc * 119/8) / 1000000.0);
 
     cnt++;
     }
@@ -80,40 +80,71 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    ui->horizontalLayout->addWidget(&chart);
-    chart.showLegend(ui->horizontalLayout, true);
-    chart.getLegend()->setFont(QFont("TimesNewRoman", 12));
-    chart.setAntialiased(true);
-
-    QFont f = chart.getTextFont(FTitle);
-    f.setPointSize(14);
-    chart.setTextFont(f, Qt::white, FTitle);
-
-    QFont f1 = chart.getTextFont(FAxisXTitle);
-    f1.setPointSize(14);
-    chart.setTextFont(f1, Qt::white, FAxisXTitle);
-
-    QFont f2 = chart.getTextFont(FAxisYTitle);
-    f2.setPointSize(14);
-    chart.setTextFont(f2, Qt::white, FAxisYTitle);
-
-    chart.setTitle("График1");
-    chart.setXTitle("Время, мкс");
-    chart.setYTitle("№");
-
     QPalette pal = palette();
     pal.setColor(QPalette::Base, Qt::black);
     this->setPalette(pal);
 
-    chart.setPalette(pal);
+    for (int i = 0; i < 4; i++) {
+        chart[i].getLegend()->setFont(QFont("TimesNewRoman", 12));
+        chart[i].getLegend()->setMaximumWidth(150);
 
-    chart.setAutoXLimits(true);
-    chart.setAutoYLimits(true);
-   // chart.setShowBorderForGantt(true);
+        chart[i].setAntialiased(true);
+
+        QFont f1 = chart[i].getTextFont(FTitle);
+        f1.setPointSize(14);
+        chart[i].setTextFont(f1, Qt::white, FTitle);
+
+        QFont f2 = chart[i].getTextFont(FAxisXTitle);
+        f2.setPointSize(14);
+        chart[i].setTextFont(f2, Qt::white, FAxisXTitle);
+
+        QFont f3 = chart[i].getTextFont(FAxisYTitle);
+        f3.setPointSize(14);
+        chart[i].setTextFont(f3, Qt::white, FAxisYTitle);
+
+        chart[i].setTitle("График " + QString::number(i));
+        chart[i].setXTitle("Время, мкс");
+        chart[i].setYTitle("№");
+
+        chart[i].setPalette(pal);
+
+        chart[i].setAutoXLimits(true);
+        chart[i].setAutoYLimits(true);
+    }
+
+    chart[0].getLegend()->setFont(QFont("TimesNewRoman", 12));
+    ui->horizontalLayout->addWidget(&chart[0]);
+    chart[0].showLegend(ui->horizontalLayout, true);
+
+    chart[1].getLegend()->setFont(QFont("TimesNewRoman", 12));
+    ui->horizontalLayout->addWidget(&chart[1]);
+    chart[1].showLegend(ui->horizontalLayout, true);
+
+    chart[2].getLegend()->setFont(QFont("TimesNewRoman", 12));
+    ui->horizontalLayout_3->addWidget(&chart[2]);
+    chart[2].showLegend(ui->horizontalLayout_3, true);
+
+    chart[3].getLegend()->setFont(QFont("TimesNewRoman", 12));
+    ui->horizontalLayout_3->addWidget(&chart[3]);
+    chart[3].showLegend(ui->horizontalLayout_3, true);
+
+    //chart.setShowBorderForGantt(true);
     //chart.setShowFreeTimeForGantt(true);
     //chart.setShowCaptionForGantt(true);
 
-    //chart.plotByFile("C:\\Users\\Max\\Desktop\\new 12.txt", true, true);
+    chart[2].plotByFile("E:\\dataset.txt", true, false);
+    for (int i = 0; i < chart[2].getSeries()->size(); i++) {
+        QPen p = chart[2].getSeries()->operator[](i).getPen();
+//        p.setWidth(3);
+//        chart[2].getSeries()->operator[](i).setPen(p);
+//        chart[2].getSeries()->operator[](i).setType(Circles);
+    }
+
+    GenerateRandom(&chart[0], 10, 100, Gantt);
+
+    timer1 = new QTimer(this);
+    connect(timer1, &QTimer::timeout, this, &MainWindow::onTimer1);
+    timer1->start(10);
 }
 
 MainWindow::~MainWindow()
@@ -124,27 +155,27 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButton_clicked()
 {
-//    LineSeriesTest();
-//    GanttSeriesTest();
-    GenerateRandom(10, 100);
+//    LineSeriesTest(0);
+//    GanttSeriesTest(0);
+//    GenerateRandom(0, 10, 100);
 //    fun(ui->lineEdit->text().toLocal8Bit().data(), 0, 999999);
 }
 
-void MainWindow::LineSeriesTest()
+void MainWindow::LineSeriesTest(int chart_num)
 {
     static unsigned int cnt = 0;
     static unsigned int addded_ser = 0;
     if (cnt % 10 == 0) {
-        Series s(&chart, "Name" + QString::number(addded_ser++));
+        Series s(&chart[chart_num], "Name" + QString::number(addded_ser++));
         s.setType(Line);
-        chart.addSeries(s);
+        chart[chart_num].addSeries(s);
     }
     else {
         int scx = 1;
         if (addded_ser % 2 == 0) scx = -1;
         int scy = 1;
         if (addded_ser % 3 == 0) scy = -1;
-        chart.getSeriesByID(addded_ser - 1)->addXY(
+        chart[chart_num].getSeriesByID(addded_ser - 1)->addXY(
                     (double)scx*((double)addded_ser * (double)addded_ser + (double)cnt),
                     (double)scy*((double)addded_ser + (double)cnt)
                                                   );
@@ -153,21 +184,21 @@ void MainWindow::LineSeriesTest()
     cnt++;
 }
 
-void MainWindow::GanttSeriesTest()
+void MainWindow::GanttSeriesTest(int chart_num)
 {
     static unsigned int cnt = 0;
     static unsigned int addded_ser = 0;
     if (cnt % 10 == 0) {
-        Series s(&chart, "Name" + QString::number(addded_ser++));
+        Series s(&chart[chart_num], "Name" + QString::number(addded_ser++));
         s.setType(Gantt);
-        chart.addSeries(s);
+        chart[chart_num].addSeries(s);
     }
     else {
         int scx = 1;
         if (addded_ser % 2 == 0) scx = -1;
         int scy = 1;
         if (addded_ser % 3 == 0) scy = -1;
-        chart.getSeriesByID(addded_ser - 1)->addXY(
+        chart[chart_num].getSeriesByID(addded_ser - 1)->addXY(
                     (double)scx*((double)addded_ser * (double)addded_ser + (double)cnt),
                     (double)scy*((double)addded_ser + (double)cnt)
                                                   );
@@ -176,15 +207,15 @@ void MainWindow::GanttSeriesTest()
     cnt++;
 }
 
-void MainWindow::GenerateRandom(unsigned int ser_num, unsigned int points_num)
+void MainWindow::GenerateRandom(CoolChart* ch, unsigned int ser_num, unsigned int points_num, SeriesType type)
 {
-    chart.clear();
+    ch->clear();
     for (int i = 0 ; i < ser_num; i++) {
-        Series s(&chart, "Name" + QString::number(i));
+        Series s(ch, "Name" + QString::number(i));
 
         QRandomGenerator::global()->generate();
 
-        s.setType(Gantt);
+        s.setType(type);
         QPen p = s.getPen();
         p.setWidth(3);
         s.setPen(p);
@@ -198,6 +229,31 @@ void MainWindow::GenerateRandom(unsigned int ser_num, unsigned int points_num)
             double w = QRandomGenerator::global()->bounded(wmax);
             s.addXY(x, w);
         }
-        chart.addSeries(s);
+        ch->addSeries(s);
+    }
+}
+
+
+void MainWindow::onTimer1()
+{
+    static bool first = true;
+    static double x = 0.0;
+    static int id_sin = 0;
+    static int id_cos = 0;
+    if (first) {
+        Series s1(&chart[1], "sin");
+        id_sin = chart[1].addSeries(s1);
+        Series s2(&chart[1], "cos");
+        id_cos = chart[1].addSeries(s2);
+        first = false;
+    }
+    chart[1].getSeriesByID(id_sin)->addXY(x, sin(x));
+    chart[1].getSeriesByID(id_cos)->addXY(x, cos(x));
+    x += 0.1;
+
+    if (chart[1].getSeriesByID(id_sin)->getXY()->size() > 1000) {
+        x = 0;
+        chart[1].getSeriesByID(id_sin)->clear();
+        chart[1].getSeriesByID(id_cos)->clear();
     }
 }
