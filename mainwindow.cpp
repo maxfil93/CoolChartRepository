@@ -145,6 +145,12 @@ MainWindow::MainWindow(QWidget *parent)
     timer1 = new QTimer(this);
     connect(timer1, &QTimer::timeout, this, &MainWindow::onTimer1);
     timer1->start(10);
+
+//    Series s(&chart[3], "sss");
+//    s.addXY(0,0);
+//    s.addXY(10,7);
+//    s.addXY(-5,DBL_MAX);
+//    chart[3].addSeries(s);
 }
 
 MainWindow::~MainWindow()

@@ -51,8 +51,8 @@ QColor PredefColors[PredefColors_NUM] = {
     s.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);\
 })
 
-#define COMPAT_FONTSTRINGWIDTHHEIGHT(font, string, w, h) ({\
-    QFontMetrics fm(font);\
+#define COMPAT_FONTSTRINGWIDTHHEIGHT(painter, string, w, h) ({\
+    QFontMetrics fm = painter.fontMetrics();\
     w = fm.horizontalAdvance(string);\
     h = fm.height();\
 })
@@ -67,8 +67,8 @@ QColor PredefColors[PredefColors_NUM] = {
     s.split(QRegularExpression("\\s+"), QString::SkipEmptyParts);\
 })
 
-#define COMPAT_FONTSTRINGWIDTHHEIGHT(font, string, w, h) ({\
-    QFontMetrics fm(font);\
+#define COMPAT_FONTSTRINGWIDTHHEIGHT(painter, string, w, h) ({\
+    QFontMetrics fm = painter.fontMetrics();\
     w = fm.width(string);\
     h = fm.height();\
 })
@@ -1185,7 +1185,7 @@ void CoolChart::drawXNumber(QPainter& painter, int x)
     QPointF xy = pixPointToPhisycal(QPoint(x, 0));
     QString s = QString::number( xy.x(), textX_fmt, textX_prec );
     int fontheight, fontwidth;
-    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXNumbers], s, fontwidth, fontheight);
+    COMPAT_FONTSTRINGWIDTHHEIGHT(painter, s, fontwidth, fontheight);
     QPoint p_txt(x - fontwidth / 2, 0 - outerRectPen.width() + fontheight + 4);
     painter.scale(1, -1);
     painter.drawText(p_txt, s);
@@ -1200,7 +1200,7 @@ void CoolChart::drawYNumber(QPainter& painter, int y)
     QPointF xy = pixPointToPhisycal(QPoint(0, y));
     QString s = QString::number( xy.y(), textY_fmt, textY_prec );
     int fontheight, fontwidth;
-    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisYNumbers], s, fontwidth, fontheight);
+    COMPAT_FONTSTRINGWIDTHHEIGHT(painter, s, fontwidth, fontheight);
     QPoint p_txt( -(fontwidth + outerRectPen.width() + 4), -(y - fontheight/2 + 3));
     if (p_txt.x() < min_x_y_number) min_x_y_number = p_txt.x();
     painter.scale(1, -1);
@@ -1222,8 +1222,8 @@ void CoolChart::drawAxisTitle(QPainter& painter)
     painter.setPen(textColor[FAxisXTitle]);
 
     int axis_title_w, axis_title_h, axis_num_w, axis_num_h;
-    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXTitle],   xTitle, axis_title_w, axis_title_h);
-    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXNumbers], xTitle, axis_num_w, axis_num_h);
+    COMPAT_FONTSTRINGWIDTHHEIGHT(painter,   xTitle, axis_title_w, axis_title_h);
+    COMPAT_FONTSTRINGWIDTHHEIGHT(painter, xTitle, axis_num_w, axis_num_h);
 
     QRect rr(w_f / 2 - axis_title_w / 2, axis_num_h + outerRectPen.width() + 4, axis_title_w, axis_title_h);
     painter.scale(1, -1);
@@ -1235,7 +1235,7 @@ void CoolChart::drawAxisTitle(QPainter& painter)
     painter.setFont(textFont[FAxisYTitle]);
     painter.setPen(textColor[FAxisYTitle]);
 
-    COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisYTitle], yTitle, axis_title_w, axis_title_h);
+    COMPAT_FONTSTRINGWIDTHHEIGHT(painter, yTitle, axis_title_w, axis_title_h);
 
     QRect rr1(min_x_y_number - axis_title_w / 2 - 5, -((h_f / 2) + axis_title_h/2), axis_title_w, axis_title_h);
     painter.scale(1, -1);
@@ -1370,12 +1370,17 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
             QString s = "(" + QString::number(nr.x()) + "; " + QString::number(nr.y()) + ")";
 
+            Painter.setFont(textFont[FAxisXNumbers]);
+
             int fontheight, fontwidth;
-            COMPAT_FONTSTRINGWIDTHHEIGHT(textFont[FAxisXNumbers], s, fontwidth, fontheight);
+            COMPAT_FONTSTRINGWIDTHHEIGHT(Painter, s, fontwidth, fontheight);
+
+            QRect r(pp.x(), pp.y() - fontheight - 10, fontwidth, fontheight);
+            Painter.fillRect(r, getInvColor(p.color()));
+            r.setTop(-r.top() - fontheight);
 
             Painter.scale(1,-1);
-            Painter.fillRect(pp.x()+15, -pp.y()+20-(fontheight-(fontheight/3)), fontwidth, fontheight, getInvColor(p.color()));
-            Painter.drawText(pp.x()+15, -pp.y()+20, s);
+            Painter.drawText(r, s);
             Painter.scale(1,-1);
         }
     }
@@ -1497,11 +1502,11 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
                     }
                 }
 
-                setXMin(xmin);
-                setXMax(xmax);
+                if (xmin != DBL_MAX) setXMin(xmin);
+                if (xmax != DBL_MIN) setXMax(xmax);
 
-                setYMin(ymin);
-                setYMax(ymax);
+                if (ymin != DBL_MAX) setYMin(ymin);
+                if (ymax != DBL_MIN) setYMax(ymax);
 
                 update();
             }
