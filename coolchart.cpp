@@ -64,7 +64,7 @@ QColor PredefColors[PredefColors_NUM] = {
 })
 
 #define COMPAT_SPLITSTRING(s) ({\
-    s.split(QRegularExpression("\\s+"), QString::SkipEmptyParts)\
+    s.split(QRegularExpression("\\s+"), QString::SkipEmptyParts);\
 })
 
 #define COMPAT_FONTSTRINGWIDTHHEIGHT(font, string, w, h) ({\
