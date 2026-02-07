@@ -103,7 +103,7 @@ void Series::addXY(QPointF p)
         if (max_y > parent->getYMax()) parent->setYMax(max_y);
     }
 
-    parent->update();
+    parent->requestUpdate();
 }
 
 void Series::addXY(double x, double y)
@@ -140,7 +140,7 @@ void Series::addXY(double x, double y)
         if (max_y > parent->getYMax()) parent->setYMax(max_y);
     }
 
-    parent->update();
+    parent->requestUpdate();
 }
 
 void Series::clear()
@@ -154,7 +154,7 @@ void Series::clear()
     avg_vis_y = 0;
 
     xy.clear();
-    parent->update();
+    parent->requestUpdate();
 }
 
 QList<QPointF>* Series::getXY()
@@ -165,19 +165,19 @@ QList<QPointF>* Series::getXY()
 void Series::setType(SeriesType type)
 {
     this->type = type;
-    parent->update();
+    parent->requestUpdate();
 }
 
 void Series::setBrush(QBrush brush)
 {
     this->brush = brush;
-    parent->update();
+    parent->requestUpdate();
 }
 
 void Series::setPen(QPen pen)
 {
     this->pen = pen;
-    parent->update();
+    parent->requestUpdate();
 }
 
 SeriesType Series::getType()
@@ -208,6 +208,7 @@ bool Series::getVisible()
 
 CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
 {
+    updateSuspended = false;
     antialiased = false;
 
     //Внешний квадрат
@@ -273,6 +274,8 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     zoom_by_wheel_x = false;
     zoom_by_wheel_y = false;
 
+    maxPointsPerPixel = 2;
+
     lw = new QListWidget(this);
     lw->setVisible(false);
     lw->setMaximumWidth(300);
@@ -322,6 +325,25 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     min_x_y_number = 0x7FFFFFFF;
 }
 
+void CoolChart::requestUpdate()
+{
+    if (!updateSuspended) {
+        update();
+    }
+}
+
+void CoolChart::beginBulkUpdate()
+{
+    updateSuspended = true;
+}
+
+void CoolChart::endBulkUpdate(bool forceRepaint)
+{
+    updateSuspended = false;
+    if (forceRepaint) {
+        update();
+    }
+}
 
 
 //*********************************************************************
@@ -331,31 +353,31 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
 void CoolChart::setAntialiased(bool antialiased)
 {
   this->antialiased = antialiased;
-  update();
+  requestUpdate();
 }
 
 void CoolChart::setOuterRectPen(const QPen &pen)
 {
     this->outerRectPen = pen;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setOuterRectBrush(const QBrush &brush)
 {
     this->outerRectBrush = brush;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setGridPen(const QPen &pen)
 {
     this->gridPen = pen;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setGridLineCountX(int X)
 {
     this->gridLineCountX = X;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setGridLineCountY(int Y)
@@ -368,7 +390,7 @@ void CoolChart::setTextFont(QFont font, QColor color, FontOfWhat what)
 {
     this->textFont[what] = font;
     this->textColor[what] = color;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setTextXFormat(char fmt)
@@ -394,25 +416,25 @@ void CoolChart::setTextYPrecision(int precision)
 void CoolChart::setMarginTop(int top)
 {
     marginTop = top;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setMarginLeft(int left)
 {
     marginLeft = left;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setMarginRight(int right)
 {
     marginRight = right;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setMarginBottom(int bottom)
 {
     marginBottom = bottom;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setMargins(int top, int left, int right, int bottom)
@@ -421,31 +443,31 @@ void CoolChart::setMargins(int top, int left, int right, int bottom)
     marginLeft = left;
     marginRight = right;
     marginBottom = bottom;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setXMin(double xMin)
 {
     this->xMin = xMin;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::CoolChart::setXMax(double xMax)
 {
     this->xMax = xMax;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setYMin(double yMin)
 {
     this->yMin = yMin;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setYMax(double yMax)
 {
     this->yMax = yMax;
-    update();
+    requestUpdate();
 }
 
 void CoolChart::setLimits(double xMin, double xMax, double yMin, double yMax)
@@ -485,6 +507,13 @@ void CoolChart::setXTitle(QString tit)
 void CoolChart::setYTitle(QString tit)
 {
     yTitle = tit;
+}
+
+void CoolChart::setMaxPointsPerPixel(int points)
+{
+    if (points < 1) points = 1;
+    maxPointsPerPixel = points;
+    requestUpdate();
 }
 
 
@@ -653,7 +682,7 @@ void CoolChart::clear()
     if (autoYLimit) {
         yMin = 0, yMax = 10;
     }
-    update();
+    requestUpdate();
 }
 
 
@@ -878,7 +907,18 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
 
         QPainterPath pl;
 
-        for (int j = si; j < series[i].getXY()->size() - 1; j++) {
+        int visiblePoints = 0;
+        if (xMax > xMin && w_f > 0) {
+            visiblePoints = qMax(1, static_cast<int>(series[i].getXY()->size() * ((xMax - xMin) / (series[i].getXY()->last().x() - series[i].getXY()->first().x() + 1e-12))));
+        }
+        else {
+            visiblePoints = series[i].getXY()->size();
+        }
+
+        int targetPoints = qMax(w_f * maxPointsPerPixel, 1);
+        int stride = qMax(1, visiblePoints / targetPoints);
+
+        for (int j = si; j < series[i].getXY()->size() - 1; j += stride) {
 
             QLineF ph_l(series[i].getXY()->operator[](j), series[i].getXY()->operator[](j+1));
             if (series[i].getXY()->operator[](j).x() > xMax) break;
@@ -1472,8 +1512,13 @@ QListWidgetItem* CoolChart::getSelectedSeriesItem()
 
 int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
 {
+    beginBulkUpdate();
+
     QFile F(fn);
-    if (!F.open(QIODevice::ReadOnly)) return 1;
+    if (!F.open(QIODevice::ReadOnly)) {
+        endBulkUpdate(false);
+        return 1;
+    }
 
     QTextStream ts(&F);
 
@@ -1549,6 +1594,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
         this->addSeries(s_list[i]);
     }
 
+    endBulkUpdate(true);
     return 0;
 }
 

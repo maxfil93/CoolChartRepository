@@ -82,6 +82,8 @@ class CoolChart : public QOpenGLWidget
     Q_OBJECT
 
 private:
+    bool updateSuspended;
+
     bool antialiased;
 
     QPen outerRectPen;
@@ -136,6 +138,8 @@ private:
     bool zoom_by_wheel_y;
     bool smooth_scale;
 
+    int maxPointsPerPixel;
+
     QString title;
     QString xTitle;
     QString yTitle;
@@ -184,6 +188,10 @@ private:
 public:
     CoolChart(QWidget *ob = 0);
 
+    void requestUpdate();
+    void beginBulkUpdate();
+    void endBulkUpdate(bool forceRepaint = true);
+
     void setAntialiased(bool antialiased);
     void setOuterRectPen(const QPen &pen);
     void setOuterRectBrush(const QBrush &brush);
@@ -211,6 +219,7 @@ public:
     void setTitle(QString tit);
     void setXTitle(QString tit);
     void setYTitle(QString tit);
+    void setMaxPointsPerPixel(int points);
 
     bool getAntialiased();
     QPen getOuterRectPen();
@@ -237,9 +246,10 @@ public:
     QPen getCrossPen();
     QListWidget* getLegend();
     QList<Series>* getSeries();
-    QString getTitle();
-    QString getXTitle();
-    QString getYTitle();
+    QString getTitle(){return title;}
+    QString getXTitle(){return xTitle;}
+    QString getYTitle(){return yTitle;}
+    int getMaxPointsPerPixel() const {return maxPointsPerPixel;}
 
     int addSeries(Series s);
     Series* getSeriesByID(int id);
