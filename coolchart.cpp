@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScreen>
+#include <QRandomGenerator>
 #include <math.h>
 #include <float.h>
 #include <QSizePolicy>
@@ -16,8 +17,8 @@
 
 int Series::cnt = 0;
 
-#define PredefColors_NUM 16
-QColor PredefColors[PredefColors_NUM] = {
+constexpr int PREDEF_COLORS_NUM = 16;
+constexpr QColor PREDEF_COLORS[PREDEF_COLORS_NUM] = {
     Qt::red,
     Qt::green,
     Qt::blue,
@@ -157,9 +158,9 @@ void Series::clear()
     parent->requestUpdate();
 }
 
-QList<QPointF>* Series::getXY()
+const QList<QPointF>& Series::getXY() const
 {
-    return &xy;
+    return xy;
 }
 
 void Series::setType(SeriesType type)
@@ -168,29 +169,29 @@ void Series::setType(SeriesType type)
     parent->requestUpdate();
 }
 
-void Series::setBrush(QBrush brush)
+void Series::setBrush(const QBrush& brush)
 {
     this->brush = brush;
     parent->requestUpdate();
 }
 
-void Series::setPen(QPen pen)
+void Series::setPen(const QPen& pen)
 {
     this->pen = pen;
     parent->requestUpdate();
 }
 
-SeriesType Series::getType()
+SeriesType Series::getType() const
 {
     return type;
 }
 
-QBrush Series::getBrush()
+QBrush Series::getBrush() const
 {
     return brush;
 }
 
-QPen Series::getPen()
+QPen Series::getPen() const
 {
     return pen;
 }
@@ -200,9 +201,19 @@ void Series::setVisible(bool v)
     visible = v;
 }
 
-bool Series::getVisible()
+bool Series::getVisible() const
 {
     return visible;
+}
+
+void Series::setXYPix(const QList<QPoint>& xyP)
+{
+    xyPix = xyP;
+}
+
+const QList<QPoint>& Series::getXYPix() const
+{
+    return xyPix;
 }
 
 
@@ -232,7 +243,7 @@ CoolChart::CoolChart(QWidget *ob) : QOpenGLWidget(ob)
     //Физические границы построения
     xMin = 0, xMax = 10, yMin = 0, yMax = 10;
 
-    for (int i = 0; i < Font_NUM; i++) {
+    for (int i = 0; i < FONT_NUM; i++) {
         this->textFont[i].setFamily("Consolas");
         this->textFont[i].setPointSize(10);
         this->textColor[i] = Qt::white;
@@ -452,7 +463,7 @@ void CoolChart::setXMin(double xMin)
     requestUpdate();
 }
 
-void CoolChart::CoolChart::setXMax(double xMax)
+void CoolChart::setXMax(double xMax)
 {
     this->xMax = xMax;
     requestUpdate();
@@ -693,7 +704,7 @@ void CoolChart::clear()
 //------------------------private-Functions----------------------------
 //*********************************************************************
 
-bool CoolChart::doesPhisycalLineBelongToChart(QLineF l)
+bool CoolChart::doesPhysicalLineBelongToChart(const QLineF& l) const
 {
     double x1 = l.p1().x();
     double y1 = l.p1().y();
@@ -701,10 +712,10 @@ bool CoolChart::doesPhisycalLineBelongToChart(QLineF l)
     double y2 = l.p2().y();
 
     if (
-        (do_lines_cross(x1, y1, x2, y2,  xMin, yMax, xMax, yMax) ||
-        do_lines_cross(x1, y1, x2, y2,   xMax, yMax, xMax, yMin) ||
-        do_lines_cross(x1, y1, x2, y2,   xMax, yMin, xMin, yMin) ||
-        do_lines_cross(x1, y1, x2, y2,   xMin, yMin, xMin, yMax) ||
+        (doLinesCross(x1, y1, x2, y2,  xMin, yMax, xMax, yMax) ||
+        doLinesCross(x1, y1, x2, y2,   xMax, yMax, xMax, yMin) ||
+        doLinesCross(x1, y1, x2, y2,   xMax, yMin, xMin, yMin) ||
+        doLinesCross(x1, y1, x2, y2,   xMin, yMin, xMin, yMax) ||
         ((x1 >= xMin) && (x1 <= xMax) && (y1 >= yMin) && (y1 <= yMax)) ||
         ((x2 >= xMin) && (x2 <= xMax) && (y2 >= yMin) && (y2 <= yMax))
         )
@@ -714,7 +725,7 @@ bool CoolChart::doesPhisycalLineBelongToChart(QLineF l)
        return false;
 }
 
-bool CoolChart::doesPhisycalPointBelongToChart(QPointF p)
+bool CoolChart::doesPhysicalPointBelongToChart(const QPointF& p) const
 {
     if (p.x() > xMin && p.x() < xMax && p.y() > yMin && p.y() < yMax) {
         return true;
@@ -722,15 +733,20 @@ bool CoolChart::doesPhisycalPointBelongToChart(QPointF p)
     return false;
 }
 
-int CoolChart::calcPixDist(QLine l)
+int CoolChart::calcPixDist(const QLine& l) const
 {
     int d = (int)(sqrt( pow(l.dx(),2) + pow(l.dy(),2) ));
     return d;
 }
 
-QPoint  CoolChart::phisycalPointToPix(QPointF point)
+QPoint  CoolChart::physicalPointToPix(QPointF point) const
 {
     QPoint res;
+
+    // Проверка на деление на ноль
+    if (w_f <= 0 || h_f <= 0 || qFuzzyCompare(xMax, xMin) || qFuzzyCompare(yMax, yMin)) {
+        return res;
+    }
 
     double x = (point.x() - xMin) / (( (xMax - xMin) / (w_f) ));
     double y = (point.y() - yMin) / (( (yMax - yMin) / (h_f) ));
@@ -741,9 +757,14 @@ QPoint  CoolChart::phisycalPointToPix(QPointF point)
     return res;
 }
 
-QPointF CoolChart::pixPointToPhisycal(QPoint point)
+QPointF CoolChart::pixPointToPhysical(QPoint point) const
 {
     QPointF res;
+
+    // Проверка на деление на ноль
+    if (w_f <= 0 || h_f <= 0) {
+        return res;
+    }
 
     double x = (point.x() * ( (xMax - xMin) / (w_f) ))  +  (xMin);
     double y = (point.y() * ( (yMax - yMin) / (h_f) ))  +  (yMin);
@@ -754,7 +775,7 @@ QPointF CoolChart::pixPointToPhisycal(QPoint point)
     return res;
 }
 
-QPointF CoolChart::findNearestPointByX(Series& s, double x)
+QPointF CoolChart::findNearestPointByX(const Series& s, double x) const
 {
     double mindx = DBL_MAX;
     QPointF res;
@@ -776,8 +797,8 @@ void CoolChart::zoomByRect(QRect r)
 
     QPoint p1(x1,y1); QPoint p2(x2,y2);
 
-    QPointF f1 = pixPointToPhisycal(p1);
-    QPointF f2 = pixPointToPhisycal(p2);
+    QPointF f1 = pixPointToPhysical(p1);
+    QPointF f2 = pixPointToPhysical(p2);
 
     xMin = f1.x();
     xMax = f2.x();
@@ -789,7 +810,7 @@ void CoolChart::zoomByRect(QRect r)
     yMax = f1.y();
 }
 
-QPixmap CoolChart::grabScreenshot()
+QPixmap CoolChart::grabScreenshot() const
 {
     QRect wr = this->rect();
     QPoint r1 = mapToGlobal(QPoint(wr.x(), wr.y()));
@@ -922,12 +943,12 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
 
             QLineF ph_l(series[i].getXY()->operator[](j), series[i].getXY()->operator[](j+1));
             if (series[i].getXY()->operator[](j).x() > xMax) break;
-            if (doesPhisycalLineBelongToChart(ph_l)) {
+            if (doesPhysicalLineBelongToChart(ph_l)) {
 
-            //if (/*doesPhisycalPointBelongToChart(ph_l.p1()) || doesPhisycalPointBelongToChart(ph_l.p2())*/1) {
+            //if (/*doesPhysicalPointBelongToChart(ph_l.p1()) || doesPhysicalPointBelongToChart(ph_l.p2())*/1) {
 
-                QPoint p1 = phisycalPointToPix(series[i].getXY()->operator[](j));
-                QPoint p2 = phisycalPointToPix(series[i].getXY()->operator[](j+1));
+                QPoint p1 = physicalPointToPix(series[i].getXY()->operator[](j));
+                QPoint p2 = physicalPointToPix(series[i].getXY()->operator[](j+1));
                 l.setP1( p1 );
                 l.setP2( p2 );
 
@@ -945,14 +966,14 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
                     pl.moveTo(p1);
                     pl.lineTo(p2);
                     if (series[i].getXYPix()->size() == 0) {
-                        if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p1)))
+                        if (doesPhysicalPointBelongToChart(pixPointToPhysical(p1)))
                         {
                             series[i].getXYPix()->append(p1);
                             series[i].avg_vis_sum_y += series[i].getXY()->operator[](j).y();
                             series[i].avg_vis_n_y++;
                             series[i].avg_vis_y = series[i].avg_vis_sum_y / series[i].avg_vis_n_y;
                         }
-                        if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p2)))
+                        if (doesPhysicalPointBelongToChart(pixPointToPhysical(p2)))
                         {
                             series[i].getXYPix()->append(p2);
                             series[i].avg_vis_sum_y += series[i].getXY()->operator[](j+1).y();
@@ -961,7 +982,7 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
                         }
                     }
                     else
-                        if (doesPhisycalPointBelongToChart(pixPointToPhisycal(p2)))
+                        if (doesPhysicalPointBelongToChart(pixPointToPhysical(p2)))
                         {
                             series[i].getXYPix()->append(p2);
                             series[i].avg_vis_sum_y += series[i].getXY()->operator[](j+1).y();
@@ -974,7 +995,7 @@ void CoolChart::drawLineSeries(int i, QPainter& p)
         p.drawPath(pl);
     }
     else if (series[i].getXY()->size() == 1) {
-        QPoint p1 = phisycalPointToPix(series[i].getXY()->operator[](0));
+        QPoint p1 = physicalPointToPix(series[i].getXY()->operator[](0));
         p.drawEllipse(p1, series[i].getPen().width()/2, series[i].getPen().width()/2);
     }
 }
@@ -986,8 +1007,8 @@ void CoolChart::drawCircleSeries(int i, QPainter& p)
     p.setPen(series[i].getPen());
     for (int j = 0; j < series[i].getXY()->size(); j++) {
         ph_p = series[i].getXY()->operator[](j);
-        if (doesPhisycalPointBelongToChart(ph_p)) {
-            p1 = phisycalPointToPix(ph_p);
+        if (doesPhysicalPointBelongToChart(ph_p)) {
+            p1 = physicalPointToPix(ph_p);
             p.drawEllipse(p1, series[i].getPen().width()/2, series[i].getPen().width()/2);
         }
     }
@@ -998,7 +1019,7 @@ void CoolChart::drawXNumber(QPainter& painter, int x)
     //Подписи оси X
     painter.setFont(textFont[FAxisXNumbers]);
     painter.setPen(textColor[FAxisXNumbers]);
-    QPointF xy = pixPointToPhisycal(QPoint(x, 0));
+    QPointF xy = pixPointToPhysical(QPoint(x, 0));
     QString s = QString::number( xy.x(), textX_fmt, textX_prec );
     QFontMetrics fm(textFont[FAxisXNumbers]);
     int fontheight = fm.height();
@@ -1014,7 +1035,7 @@ void CoolChart::drawYNumber(QPainter& painter, int y)
     //Подписи оси Y
     painter.setFont(textFont[FAxisYNumbers]);
     painter.setPen(textColor[FAxisYNumbers]);
-    QPointF xy = pixPointToPhisycal(QPoint(0, y));
+    QPointF xy = pixPointToPhysical(QPoint(0, y));
     QString s = QString::number( xy.y(), textY_fmt, textY_prec );
     QFontMetrics fm(textFont[FAxisYNumbers]);
     int fontheight = fm.height();
@@ -1152,7 +1173,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
         Painter.drawLine(ly);
         Painter.scale(1,-1);
         QPoint pnt(crossLineX, crossLineY);
-        QPointF pntf = pixPointToPhisycal(pnt);
+        QPointF pntf = pixPointToPhysical(pnt);
 
         QString s = "(" + QString::number(pntf.x()) + "; " + QString::number(pntf.y()) + ")";
 
@@ -1164,7 +1185,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 
         for (int i = 0; i < series.size(); i++) {
             QPointF nr = findNearestPointByX(series[i], pntf.x());
-            QPoint pp = phisycalPointToPix(nr);
+            QPoint pp = physicalPointToPix(nr);
             p.setColor(series[i].getPen().color());
             p.setWidth(2); //series[i].getPen().width()
             Painter.setPen(p);
@@ -1189,7 +1210,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
     }
 
     if (draw_inf_enabled)
-        DrawInf(Painter);
+        drawInfo(Painter);
 
     std::cout << "The slow operation took " << timer.elapsed() << " milliseconds" << std::endl;
 }
@@ -1197,7 +1218,7 @@ void CoolChart::paintEvent(QPaintEvent * /* event */)
 void CoolChart::mouseMoveEvent(QMouseEvent *event)
 {
     if (rmb_pressed) {
-        QPointF tek_p_f = pixPointToPhisycal(event->pos());
+        QPointF tek_p_f = pixPointToPhysical(event->pos());
         QPointF dp = tek_p_f - rmb_pr_p_f;
 
         this->xMin -= dp.x();
@@ -1206,7 +1227,7 @@ void CoolChart::mouseMoveEvent(QMouseEvent *event)
         this->yMin += dp.y();
         this->yMax += dp.y();
 
-        rmb_pr_p_f = pixPointToPhisycal(event->pos());
+        rmb_pr_p_f = pixPointToPhysical(event->pos());
 
 
 
@@ -1251,7 +1272,7 @@ void CoolChart::mousePressEvent(QMouseEvent *event)
     }
     else if (event->button() == Qt::RightButton) {
         rmb_pressed = true;
-        rmb_pr_p_f = pixPointToPhisycal(event->pos());
+        rmb_pr_p_f = pixPointToPhysical(event->pos());
         rmb_pr_p_p = event->pos();
     }
     else if (event->button() == Qt::MiddleButton) {
@@ -1323,7 +1344,7 @@ void CoolChart::mouseReleaseEvent(QMouseEvent *event)
     lmb_pressed = false;
 }
 
-void CoolChart::DrawInf(QPainter& p)
+void CoolChart::drawInfo(QPainter& p)
 {
     QPen pn;
     pn.setWidth(1);
@@ -1382,7 +1403,7 @@ void CoolChart::keyReleaseEvent(QKeyEvent* event)
     }
 }
 
-bool CoolChart::do_lines_cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+bool CoolChart::doLinesCross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
 {
 double Ua, Ub, numerator_a, numerator_b, denominator;
     denominator=(y4-y3)*(x1-x2)-(x4-x3)*(y1-y2);
@@ -1407,7 +1428,7 @@ void CoolChart::wheelEvent(QWheelEvent* event)
     int y = this->h_f - (event->position().y() - this->y_f);
     this->setAutoXLimits(false);
     this->setAutoYLimits(false);
-    QPointF ph_p = this->pixPointToPhisycal(QPoint(x, y));
+    QPointF ph_p = this->pixPointToPhysical(QPoint(x, y));
 
     double ww = this->xMax - this->xMin;
     double hh = this->yMax - this->yMin;
@@ -1474,12 +1495,12 @@ void CoolChart::showContextMenu(const QPoint &pos)
     }
     QPoint globalPos = lw->mapToGlobal(pos);
     QMenu myMenu;
-    myMenu.addAction("Удалить",  this, &CoolChart::deleteSeies);
+    myMenu.addAction("Удалить",  this, &CoolChart::deleteSeries);
     myMenu.addAction("Свойства",  this, &CoolChart::openColorDialog);
     myMenu.exec(globalPos);
 }
 
-void CoolChart::deleteSeies()
+void CoolChart::deleteSeries()
 {
     deleteSeriesById(series[selectedInd].getID());
 }
@@ -1534,11 +1555,11 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
             Series s(this);
             s.setName(splitTitle[i]);
             QPen pen = s.getPen();
-            if (i < PredefColors_NUM) {
-                pen.setColor(PredefColors[i]);
+            if (i < PREDEF_COLORS_NUM) {
+                pen.setColor(PREDEF_COLORS[i]);
             }
             else {
-                pen.setColor(QColor(rand()%255, rand()%255, rand()%255));
+                pen.setColor(QColor(QRandomGenerator::global()->bounded(256), QRandomGenerator::global()->bounded(256), QRandomGenerator::global()->bounded(256)));
             }
             s.setPen(pen);
             s_list.append(s);
@@ -1553,11 +1574,11 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
             Series s(this);
             s.setName("Series " + QString::number(i));
             QPen pen = s.getPen();
-            if (i < PredefColors_NUM) {
-                pen.setColor(PredefColors[i]);
+            if (i < PREDEF_COLORS_NUM) {
+                pen.setColor(PREDEF_COLORS[i]);
             }
             else {
-                pen.setColor(QColor(rand()%255, rand()%255, rand()%255));
+                pen.setColor(QColor(QRandomGenerator::global()->bounded(256), QRandomGenerator::global()->bounded(256), QRandomGenerator::global()->bounded(256)));
             }
             s.setPen(pen);
             s_list.append(s);
@@ -1574,10 +1595,10 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
         for (int i = start; i < splitRow.length() && i < len; ++i) {
             bool ok = false;
             bool ok2 = true;
-            double val = QStringToNumber(splitRow[i], &ok);
+            double val = stringToNumber(splitRow[i], &ok);
             double X = 0;
             if (firstColumnIsX) {
-                X = QStringToNumber(splitRow[0], &ok2);
+                X = stringToNumber(splitRow[0], &ok2);
             }
             else {
                 X = cnt;
@@ -1598,7 +1619,7 @@ int CoolChart::plotByFile(QString fn, bool firstRowIsTitle, bool firstColumnIsX)
     return 0;
 }
 
-double CoolChart::QStringToNumber(QString s, bool* ok)
+double CoolChart::stringToNumber(QString s, bool* ok)
 {
     s = s.trimmed();
     double val = 0;
@@ -1620,4 +1641,29 @@ double CoolChart::QStringToNumber(QString s, bool* ok)
         val = s.toInt(ok, 10);
         return val;
     }
+}
+
+void Series::setName(const QString& n)
+{
+    name = n;
+}
+
+QString Series::getName() const
+{
+    return name;
+}
+
+int Series::getID() const
+{
+    return id;
+}
+
+double Series::getAvgY() const
+{
+    return avg_y;
+}
+
+const QList<QPoint>& Series::getXYPix() const
+{
+    return xyPix;
 }
